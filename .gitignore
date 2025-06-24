@@ -1,0 +1,9 @@
+*.docx
+**/tmp/*
+*.log
+.env
+**/build/*
+**/node_modules/*
+**/coverage/*
+*.png
+**/.vscode

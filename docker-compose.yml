@@ -26,6 +26,7 @@ services:
       - NODE_ENV=development
       - PORT=8000
       - WORKFLOW_SERVICE_URL=http://workflow-service:8001
+      - VIDEO_PROCESSOR_URL=http://video-processor:8002
       - REDIS_URL=redis://redis:6379
       - LOG_LEVEL=debug
     volumes:
@@ -36,8 +37,35 @@ services:
     networks:
       - youtube-transcriber
 
+  # Video Processor - YouTube video download and processing
+  video-processor:
+    build:
+      context: ./services/video-processor
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8002"
+    environment:
+      - NODE_ENV=development
+      - PORT=8002
+      - REDIS_URL=redis://redis:6379
+      - LOG_LEVEL=debug
+      - DOWNLOAD_DIR=/app/downloads
+      - OUTPUT_DIR=/app/output
+    volumes:
+      - ./services/video-processor/src:/app/src
+      - video-downloads:/app/downloads
+      - video-output:/app/output
+    depends_on:
+      - redis
+    networks:
+      - youtube-transcriber
+
 volumes:
   redis-data:
+    driver: local
+  video-downloads:
+    driver: local
+  video-output:
     driver: local
 
 networks:
