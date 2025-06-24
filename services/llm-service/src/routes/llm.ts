@@ -127,8 +127,8 @@ router.post('/transcribe', upload.single('audio'), asyncHandler(async (req: Requ
     const jobId = await llmService.processTranscription({
       audioPath: req.file.path,
       originalFilename: req.file.originalname,
-      whisperOptions: validatedData.whisperOptions,
-      enhancementOptions: validatedData.enhancementOptions
+      whisperOptions: validatedData.whisperOptions || undefined,
+      enhancementOptions: validatedData.enhancementOptions || undefined
     });
 
     res.status(202).json({
@@ -170,8 +170,8 @@ router.post('/transcribe-from-path', asyncHandler(async (req: Request, res: Resp
     const jobId = await llmService.processTranscription({
       audioPath: validatedData.audioPath,
       originalFilename: validatedData.originalFilename,
-      whisperOptions: validatedData.whisperOptions,
-      enhancementOptions: validatedData.enhancementOptions
+      whisperOptions: validatedData.whisperOptions || undefined,
+      enhancementOptions: validatedData.enhancementOptions || undefined
     });
 
     res.status(202).json({

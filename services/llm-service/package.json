@@ -36,7 +36,6 @@
     "zod": "^3.22.4",
     "winston": "^3.11.0",
     "dotenv": "^16.3.1",
-    "node-whisper": "^0.1.0",
     "fluent-ffmpeg": "^2.1.2"
   },
   "devDependencies": {

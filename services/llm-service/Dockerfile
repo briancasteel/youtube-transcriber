@@ -16,8 +16,8 @@ WORKDIR /app
 COPY package*.json ./
 COPY tsconfig.json ./
 
-# Install dependencies
-RUN npm install --only=production && npm cache clean --force
+# Install dependencies (including dev dependencies for build)
+RUN npm install && npm cache clean --force
 
 # Copy source code
 COPY src/ ./src/
@@ -37,8 +37,8 @@ RUN apk add --no-cache \
     bash \
     git
 
-# Install Whisper
-RUN pip3 install --no-cache-dir openai-whisper
+# Install Whisper (with --break-system-packages for Alpine Linux)
+RUN pip3 install --no-cache-dir --break-system-packages openai-whisper
 
 # Create app user
 RUN addgroup -g 1001 -S nodejs && \
@@ -51,10 +51,12 @@ WORKDIR /app
 RUN mkdir -p /app/models /app/uploads /app/output /app/logs && \
     chown -R nodejs:nodejs /app
 
+# Copy package files and install production dependencies only
+COPY --from=builder --chown=nodejs:nodejs /app/package*.json ./
+RUN npm install --only=production && npm cache clean --force
+
 # Copy built application from builder stage
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
-COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
-COPY --from=builder --chown=nodejs:nodejs /app/package*.json ./
 
 # Create Ollama setup script
 COPY --chown=nodejs:nodejs scripts/ ./scripts/
