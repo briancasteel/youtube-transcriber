@@ -4,7 +4,9 @@ import path from 'path';
 import { z } from 'zod';
 import logger from '../utils/logger';
 import { asyncHandler, createError } from '../middleware/errorHandler';
-import { LLMService } from '../services/LLMService';
+import { LLMService, ProcessTranscriptionRequest } from '../services/LLMService';
+import { WhisperOptions } from '../services/WhisperService';
+import { TextEnhancementOptions } from '../services/OllamaService';
 
 const router = Router();
 
@@ -18,11 +20,11 @@ llmService.initialize().catch(error => {
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
+  destination: (req: any, file: any, cb: any) => {
     const uploadDir = process.env['UPLOAD_DIR'] || '/app/uploads';
     cb(null, uploadDir);
   },
-  filename: (req, file, cb) => {
+  filename: (req: any, file: any, cb: any) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
   }
@@ -33,7 +35,7 @@ const upload = multer({
   limits: {
     fileSize: 100 * 1024 * 1024, // 100MB limit
   },
-  fileFilter: (req, file, cb) => {
+  fileFilter: (req: any, file: any, cb: any) => {
     // Accept audio files
     const allowedMimes = [
       'audio/mpeg',
@@ -103,8 +105,40 @@ const processFromPathSchema = z.object({
   }).optional()
 });
 
+// Helper function to convert Zod output to proper types
+function convertWhisperOptions(options: any): WhisperOptions | undefined {
+  if (!options) return undefined;
+  
+  const result: WhisperOptions = {};
+  if (options.model !== undefined) result.model = options.model;
+  if (options.language !== undefined) result.language = options.language;
+  if (options.outputFormat !== undefined) result.outputFormat = options.outputFormat;
+  if (options.includeTimestamps !== undefined) result.includeTimestamps = options.includeTimestamps;
+  if (options.includeWordTimestamps !== undefined) result.includeWordTimestamps = options.includeWordTimestamps;
+  if (options.temperature !== undefined) result.temperature = options.temperature;
+  if (options.maxTokens !== undefined) result.maxTokens = options.maxTokens;
+  
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+function convertEnhancementOptions(options: any): TextEnhancementOptions | undefined {
+  if (!options) return undefined;
+  
+  const result: TextEnhancementOptions = {};
+  if (options.model !== undefined) result.model = options.model;
+  if (options.temperature !== undefined) result.temperature = options.temperature;
+  if (options.maxTokens !== undefined) result.maxTokens = options.maxTokens;
+  if (options.addPunctuation !== undefined) result.addPunctuation = options.addPunctuation;
+  if (options.fixGrammar !== undefined) result.fixGrammar = options.fixGrammar;
+  if (options.improveClarity !== undefined) result.improveClarity = options.improveClarity;
+  if (options.generateSummary !== undefined) result.generateSummary = options.generateSummary;
+  if (options.extractKeywords !== undefined) result.extractKeywords = options.extractKeywords;
+  
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
 // POST /api/llm/transcribe - Upload and transcribe audio file
-router.post('/transcribe', upload.single('audio'), asyncHandler(async (req: Request, res: Response) => {
+router.post('/transcribe', upload.single('audio'), asyncHandler(async (req: Request & { file?: any }, res: Response) => {
   const requestId = res.locals['requestId'];
   
   if (!req.file) {
@@ -123,13 +157,24 @@ router.post('/transcribe', upload.single('audio'), asyncHandler(async (req: Requ
     // Validate request body
     const validatedData = processTranscriptionSchema.parse(req.body);
 
-    // Process transcription
-    const jobId = await llmService.processTranscription({
+    // Build request object with proper types
+    const transcriptionRequest: ProcessTranscriptionRequest = {
       audioPath: req.file.path,
-      originalFilename: req.file.originalname,
-      whisperOptions: validatedData.whisperOptions || undefined,
-      enhancementOptions: validatedData.enhancementOptions || undefined
-    });
+      originalFilename: req.file.originalname
+    };
+
+    const whisperOptions = convertWhisperOptions(validatedData.whisperOptions);
+    if (whisperOptions) {
+      transcriptionRequest.whisperOptions = whisperOptions;
+    }
+
+    const enhancementOptions = convertEnhancementOptions(validatedData.enhancementOptions);
+    if (enhancementOptions) {
+      transcriptionRequest.enhancementOptions = enhancementOptions;
+    }
+
+    // Process transcription
+    const jobId = await llmService.processTranscription(transcriptionRequest);
 
     res.status(202).json({
       success: true,
@@ -166,13 +211,27 @@ router.post('/transcribe-from-path', asyncHandler(async (req: Request, res: Resp
       originalFilename: validatedData.originalFilename
     });
 
+    // Build request object with proper types
+    const transcriptionRequest: ProcessTranscriptionRequest = {
+      audioPath: validatedData.audioPath
+    };
+
+    if (validatedData.originalFilename) {
+      transcriptionRequest.originalFilename = validatedData.originalFilename;
+    }
+
+    const whisperOptions = convertWhisperOptions(validatedData.whisperOptions);
+    if (whisperOptions) {
+      transcriptionRequest.whisperOptions = whisperOptions;
+    }
+
+    const enhancementOptions = convertEnhancementOptions(validatedData.enhancementOptions);
+    if (enhancementOptions) {
+      transcriptionRequest.enhancementOptions = enhancementOptions;
+    }
+
     // Process transcription
-    const jobId = await llmService.processTranscription({
-      audioPath: validatedData.audioPath,
-      originalFilename: validatedData.originalFilename,
-      whisperOptions: validatedData.whisperOptions || undefined,
-      enhancementOptions: validatedData.enhancementOptions || undefined
-    });
+    const jobId = await llmService.processTranscription(transcriptionRequest);
 
     res.status(202).json({
       success: true,
