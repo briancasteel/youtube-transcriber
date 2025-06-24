@@ -26,9 +26,11 @@ Memory Tracking: Active in health endpoints
 - **Container Startup**: ~2-3 seconds from cold start
 - **Network Latency**: Sub-millisecond internal service communication
 
-## 🏗️ API Gateway Implementation
+## 🏗️ Service Implementation Details
 
-### Core Middleware Stack
+### API Gateway Implementation
+
+#### Core Middleware Stack
 ```typescript
 1. Security Layer (Helmet + CORS)
 2. Request Logging (UUID tracking + performance metrics)
@@ -38,7 +40,7 @@ Memory Tracking: Active in health endpoints
 6. Error Handling (Structured responses)
 ```
 
-### Endpoint Architecture
+#### Endpoint Architecture
 ```
 GET /health
 ├── Basic health check (200ms response)
@@ -67,6 +69,127 @@ GET /api/video-info
 ├── YouTube URL validation
 ├── Video metadata extraction
 └── Rate limited (30 req/5min)
+```
+
+### Video Processor Service Implementation
+
+#### Core Processing Pipeline
+```typescript
+1. YouTube URL Validation (ytdl-core integration)
+2. Video Metadata Extraction (title, duration, thumbnail)
+3. Audio Stream Download (highest quality available)
+4. FFmpeg Audio Extraction (WAV/MP3 conversion)
+5. File Management (organized storage structure)
+6. Progress Tracking (Redis-based job status)
+7. Cleanup Operations (temporary file removal)
+```
+
+#### Video Processing Endpoints
+```
+GET /health
+├── Service health monitoring
+├── FFmpeg availability check
+├── Redis connection status
+└── File system access verification
+
+GET /health/detailed
+├── Comprehensive dependency checks
+├── Storage capacity monitoring
+├── Processing queue status
+└── Performance metrics
+
+GET /api/video/info
+├── YouTube URL validation
+├── Video metadata extraction
+├── Duration and quality checks
+└── Rate limited (5 req/hour)
+
+POST /api/video/process
+├── Asynchronous job creation
+├── Audio extraction pipeline
+├── Progress tracking setup
+└── File organization
+
+GET /api/video/status/:jobId
+├── Real-time job status
+├── Progress percentage
+├── Error reporting
+└── Completion notifications
+```
+
+### Transcription Service Implementation
+
+#### Core Transcription Pipeline
+```typescript
+1. Job Queue Management (Redis-based persistence)
+2. LLM Service Communication (Axios HTTP client)
+3. Multiple Format Support (Text, SRT, VTT, JSON)
+4. Progress Tracking (Real-time status updates)
+5. Result Caching (TTL-based Redis storage)
+6. Error Recovery (Comprehensive error handling)
+7. Pagination Support (Efficient job listing)
+```
+
+#### Transcription Service Endpoints
+```
+GET /health
+├── Service health monitoring
+├── Redis connection status
+├── LLM service connectivity
+└── Job queue status
+
+GET /health/detailed
+├── Comprehensive dependency checks
+├── Active job monitoring
+├── Performance metrics
+└── Error rate tracking
+
+POST /api/transcription/from-job
+├── Job-based transcription initiation
+├── Language detection support
+├── Model selection (tiny/base/small/medium/large)
+├── Format specification (text/srt/vtt/json)
+├── Timestamp configuration
+└── Rate limited (10 req/hour)
+
+GET /api/transcription/status/:transcriptionId
+├── Real-time job status
+├── Progress percentage
+├── Error reporting
+└── Completion notifications
+
+GET /api/transcription/result/:transcriptionId
+├── Result retrieval with format support
+├── Content-Type header management
+├── Error handling for incomplete jobs
+└── Format conversion capabilities
+
+GET /api/transcription/list
+├── Paginated job listing
+├── Status filtering
+├── Sorting by creation date
+└── Comprehensive job metadata
+```
+
+#### Transcription Job Management
+```typescript
+interface TranscriptionJob {
+  transcriptionId: string;
+  status: 'queued' | 'processing' | 'completed' | 'failed';
+  audioPath: string;
+  originalFilename?: string;
+  language: string;
+  model: string;
+  format: string;
+  includeTimestamps: boolean;
+  includeWordTimestamps: boolean;
+  progress?: number;
+  result?: string;
+  error?: string;
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+}
 ```
 
 ## 🔒 Security Implementation
