@@ -1,110 +1,17 @@
 import { Router, Request, Response } from 'express';
 import { asyncHandler } from '../middleware/errorHandler';
-import { WorkflowEngine } from '../services/WorkflowEngine';
-import { LanggraphWorkflowEngine } from '../services/LanggraphWorkflowEngine';
 import { ReActWorkflowEngine } from '../services/ReActWorkflowEngine';
-import { WorkflowDefinition } from '../types/workflow';
 import logger from '../utils/logger';
 
 const router = Router();
-const workflowEngine = new WorkflowEngine();
-const langgraphEngine = new LanggraphWorkflowEngine();
 const reactEngine = new ReActWorkflowEngine();
 
-// Initialize both workflow engines
-workflowEngine.initialize().catch(error => {
-  logger.error('Failed to initialize custom workflow engine', {
-    error: error instanceof Error ? error.message : 'Unknown error'
-  });
-});
-
-langgraphEngine.initialize().catch(error => {
-  logger.error('Failed to initialize Langgraph workflow engine', {
-    error: error instanceof Error ? error.message : 'Unknown error'
-  });
-});
-
+// Initialize ReAct workflow engine
 reactEngine.initialize().catch(error => {
   logger.error('Failed to initialize ReAct workflow engine', {
     error: error instanceof Error ? error.message : 'Unknown error'
   });
 });
-
-// Execute a workflow
-router.post('/execute', asyncHandler(async (req: Request, res: Response) => {
-  const requestId = res.locals['requestId'];
-  
-  logger.info('Workflow execution request received', { 
-    requestId,
-    body: req.body 
-  });
-
-  const { workflowDefinition, input, metadata } = req.body;
-
-  // Validate required fields
-  if (!workflowDefinition || !input) {
-    return res.status(400).json({
-      success: false,
-      error: 'Missing required fields: workflowDefinition and input are required',
-      timestamp: new Date().toISOString(),
-      requestId
-    });
-  }
-
-  // Validate workflow definition structure
-  if (!workflowDefinition.id || !workflowDefinition.steps || !Array.isArray(workflowDefinition.steps)) {
-    return res.status(400).json({
-      success: false,
-      error: 'Invalid workflow definition: must have id and steps array',
-      timestamp: new Date().toISOString(),
-      requestId
-    });
-  }
-
-  try {
-    const executionId = await workflowEngine.executeWorkflow(
-      workflowDefinition as WorkflowDefinition,
-      input,
-      {
-        userId: metadata?.userId,
-        source: metadata?.source || 'api',
-        priority: metadata?.priority || 'normal',
-        tags: metadata?.tags || []
-      }
-    );
-
-    logger.info('Workflow execution started', {
-      requestId,
-      executionId,
-      workflowId: workflowDefinition.id
-    });
-
-    return res.status(202).json({
-      success: true,
-      data: {
-        executionId,
-        status: 'started',
-        message: 'Workflow execution initiated successfully'
-      },
-      timestamp: new Date().toISOString(),
-      requestId
-    });
-  } catch (error) {
-    logger.error('Failed to execute workflow', {
-      requestId,
-      workflowId: workflowDefinition.id,
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
-
-    return res.status(500).json({
-      success: false,
-      error: 'Failed to execute workflow',
-      details: error instanceof Error ? error.message : 'Unknown error',
-      timestamp: new Date().toISOString(),
-      requestId
-    });
-  }
-}));
 
 // Get workflow execution status
 router.get('/execution/:executionId', asyncHandler(async (req: Request, res: Response) => {
@@ -126,16 +33,7 @@ router.get('/execution/:executionId', asyncHandler(async (req: Request, res: Res
   });
 
   try {
-    // Try all engines to find the execution
-    let execution = await workflowEngine.getExecution(executionId);
-    
-    if (!execution) {
-      execution = await langgraphEngine.getExecution(executionId);
-    }
-
-    if (!execution) {
-      execution = await reactEngine.getExecution(executionId);
-    }
+    const execution = await reactEngine.getExecution(executionId);
 
     if (!execution) {
       return res.status(404).json({
@@ -189,7 +87,7 @@ router.post('/execution/:executionId/cancel', asyncHandler(async (req: Request, 
   });
 
   try {
-    const cancelled = await workflowEngine.cancelExecution(executionId);
+    const cancelled = await reactEngine.cancelExecution(executionId);
 
     if (!cancelled) {
       return res.status(400).json({
@@ -225,214 +123,6 @@ router.post('/execution/:executionId/cancel', asyncHandler(async (req: Request, 
     return res.status(500).json({
       success: false,
       error: 'Failed to cancel workflow execution',
-      details: error instanceof Error ? error.message : 'Unknown error',
-      timestamp: new Date().toISOString(),
-      requestId
-    });
-  }
-}));
-
-// Langgraph-powered YouTube transcription workflow
-router.post('/youtube-transcription-langgraph', asyncHandler(async (req: Request, res: Response) => {
-  const requestId = res.locals['requestId'];
-  
-  logger.info('Langgraph YouTube transcription workflow request', { 
-    requestId,
-    body: req.body 
-  });
-
-  const { youtubeUrl, options = {} } = req.body;
-
-  if (!youtubeUrl) {
-    return res.status(400).json({
-      success: false,
-      error: 'Missing required field: youtubeUrl',
-      timestamp: new Date().toISOString(),
-      requestId
-    });
-  }
-
-  const metadata = {
-    userId: req.body.userId,
-    source: 'langgraph-youtube-transcription-api',
-    priority: options.priority || 'normal',
-    tags: ['youtube', 'transcription', 'langgraph', ...(options.tags || [])]
-  };
-
-  try {
-    const executionId = await langgraphEngine.executeWorkflow(
-      youtubeUrl,
-      {
-        language: options.language || 'en',
-        enhanceText: options.enhanceText || false,
-        generateSummary: options.generateSummary || false,
-        extractKeywords: options.extractKeywords || false,
-        quality: options.quality || 'highestaudio',
-        format: options.format || 'mp3'
-      },
-      metadata
-    );
-
-    logger.info('Langgraph YouTube transcription workflow started', {
-      requestId,
-      executionId,
-      youtubeUrl
-    });
-
-    return res.status(202).json({
-      success: true,
-      data: {
-        executionId,
-        workflowId: 'youtube-transcription-langgraph',
-        status: 'started',
-        message: 'Langgraph YouTube transcription workflow initiated successfully',
-        estimatedDuration: '5-15 minutes',
-        statusUrl: `/api/workflow/execution/${executionId}`
-      },
-      timestamp: new Date().toISOString(),
-      requestId
-    });
-  } catch (error) {
-    logger.error('Failed to execute Langgraph YouTube transcription workflow', {
-      requestId,
-      youtubeUrl,
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
-
-    return res.status(500).json({
-      success: false,
-      error: 'Failed to execute Langgraph YouTube transcription workflow',
-      details: error instanceof Error ? error.message : 'Unknown error',
-      timestamp: new Date().toISOString(),
-      requestId
-    });
-  }
-}));
-
-// Predefined workflow: YouTube transcription (legacy)
-router.post('/youtube-transcription', asyncHandler(async (req: Request, res: Response) => {
-  const requestId = res.locals['requestId'];
-  
-  logger.info('YouTube transcription workflow request', { 
-    requestId,
-    body: req.body 
-  });
-
-  const { videoUrl, options = {} } = req.body;
-
-  if (!videoUrl) {
-    return res.status(400).json({
-      success: false,
-      error: 'Missing required field: videoUrl',
-      timestamp: new Date().toISOString(),
-      requestId
-    });
-  }
-
-  // Define YouTube transcription workflow
-  const workflowDefinition: WorkflowDefinition = {
-    id: 'youtube-transcription-v1',
-    name: 'YouTube Video Transcription',
-    description: 'Complete pipeline for transcribing YouTube videos with AI enhancement',
-    version: '1.0.0',
-    timeout: 1800000, // 30 minutes
-    retryPolicy: {
-      maxRetries: 2,
-      backoffStrategy: 'exponential',
-      baseDelay: 5000
-    },
-    steps: [
-      {
-        id: 'process-video',
-        name: 'Process Video',
-        service: 'video-processor',
-        endpoint: '/api/video/process',
-        method: 'POST',
-        timeout: 300000, // 5 minutes
-        retries: 3,
-        dependencies: [],
-        inputMapping: {
-          url: 'videoUrl',
-          quality: 'quality',
-          format: 'format'
-        },
-        outputMapping: {
-          jobId: 'data.jobId',
-          status: 'data.status',
-          statusUrl: 'data.statusUrl'
-        }
-      },
-      {
-        id: 'transcribe-from-job',
-        name: 'Transcribe from Job',
-        service: 'transcription-service',
-        endpoint: '/api/transcription/from-job',
-        method: 'POST',
-        timeout: 600000, // 10 minutes
-        retries: 2,
-        dependencies: ['process-video'],
-        inputMapping: {
-          jobId: 'process-video.jobId',
-          whisperOptions: 'whisperOptions',
-          enhancementOptions: 'enhancementOptions'
-        },
-        outputMapping: {
-          transcriptionId: 'data.transcriptionId',
-          status: 'data.status'
-        }
-      }
-    ]
-  };
-
-  const input = {
-    videoUrl,
-    language: options.language || 'auto',
-    transcriptionModel: options.transcriptionModel || 'whisper-1',
-    enhancementType: options.enhancementType || 'grammar_and_punctuation'
-  };
-
-  const metadata = {
-    userId: req.body.userId,
-    source: 'youtube-transcription-api',
-    priority: options.priority || 'normal',
-    tags: ['youtube', 'transcription', ...(options.tags || [])]
-  };
-
-  try {
-    const executionId = await workflowEngine.executeWorkflow(
-      workflowDefinition,
-      input,
-      metadata
-    );
-
-    logger.info('YouTube transcription workflow started', {
-      requestId,
-      executionId,
-      videoUrl
-    });
-
-    return res.status(202).json({
-      success: true,
-      data: {
-        executionId,
-        workflowId: workflowDefinition.id,
-        status: 'started',
-        message: 'YouTube transcription workflow initiated successfully',
-        estimatedDuration: '10-30 minutes'
-      },
-      timestamp: new Date().toISOString(),
-      requestId
-    });
-  } catch (error) {
-    logger.error('Failed to execute YouTube transcription workflow', {
-      requestId,
-      videoUrl,
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
-
-    return res.status(500).json({
-      success: false,
-      error: 'Failed to execute YouTube transcription workflow',
       details: error instanceof Error ? error.message : 'Unknown error',
       timestamp: new Date().toISOString(),
       requestId
@@ -513,6 +203,87 @@ router.post('/youtube-transcription-react', asyncHandler(async (req: Request, re
     return res.status(500).json({
       success: false,
       error: 'Failed to execute ReAct YouTube transcription workflow',
+      details: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date().toISOString(),
+      requestId
+    });
+  }
+}));
+
+// Main YouTube transcription endpoint (uses ReAct)
+router.post('/youtube-transcription', asyncHandler(async (req: Request, res: Response) => {
+  const requestId = res.locals['requestId'];
+  
+  logger.info('YouTube transcription workflow request (ReAct)', { 
+    requestId,
+    body: req.body 
+  });
+
+  const { videoUrl, youtubeUrl, options = {} } = req.body;
+  const url = youtubeUrl || videoUrl; // Support both field names for backward compatibility
+
+  if (!url) {
+    return res.status(400).json({
+      success: false,
+      error: 'Missing required field: youtubeUrl or videoUrl',
+      timestamp: new Date().toISOString(),
+      requestId
+    });
+  }
+
+  const goal = `Transcribe YouTube video from ${url}${options.enhanceText ? ' and enhance the text' : ''}`;
+  const context = {
+    youtubeUrl: url,
+    language: options.language || 'en',
+    enhanceText: options.enhanceText || false,
+    generateSummary: options.generateSummary || false,
+    extractKeywords: options.extractKeywords || false,
+    quality: options.quality || 'highestaudio',
+    format: options.format || 'mp3'
+  };
+
+  const metadata = {
+    userId: req.body.userId,
+    source: 'youtube-transcription-api',
+    priority: options.priority || 'normal',
+    tags: ['youtube', 'transcription', 'react', ...(options.tags || [])]
+  };
+
+  try {
+    const executionId = await reactEngine.executeWorkflow(goal, context, metadata);
+
+    logger.info('YouTube transcription workflow started (ReAct)', {
+      requestId,
+      executionId,
+      youtubeUrl: url,
+      goal
+    });
+
+    return res.status(202).json({
+      success: true,
+      data: {
+        executionId,
+        workflowId: 'youtube-transcription-react',
+        status: 'started',
+        message: 'YouTube transcription workflow initiated successfully',
+        goal,
+        estimatedDuration: '5-20 minutes',
+        statusUrl: `/api/workflow/execution/${executionId}`,
+        reasoningUrl: `/api/workflow/react/${executionId}/reasoning`
+      },
+      timestamp: new Date().toISOString(),
+      requestId
+    });
+  } catch (error) {
+    logger.error('Failed to execute YouTube transcription workflow', {
+      requestId,
+      youtubeUrl: url,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to execute YouTube transcription workflow',
       details: error instanceof Error ? error.message : 'Unknown error',
       timestamp: new Date().toISOString(),
       requestId
@@ -657,21 +428,13 @@ router.get('/react/:executionId/reasoning', asyncHandler(async (req: Request, re
 
 // Cleanup on process exit
 process.on('SIGTERM', async () => {
-  logger.info('Received SIGTERM, cleaning up workflow engines...');
-  await Promise.all([
-    workflowEngine.cleanup(),
-    langgraphEngine.cleanup(),
-    reactEngine.cleanup()
-  ]);
+  logger.info('Received SIGTERM, cleaning up ReAct workflow engine...');
+  await reactEngine.cleanup();
 });
 
 process.on('SIGINT', async () => {
-  logger.info('Received SIGINT, cleaning up workflow engines...');
-  await Promise.all([
-    workflowEngine.cleanup(),
-    langgraphEngine.cleanup(),
-    reactEngine.cleanup()
-  ]);
+  logger.info('Received SIGINT, cleaning up ReAct workflow engine...');
+  await reactEngine.cleanup();
 });
 
 export default router;

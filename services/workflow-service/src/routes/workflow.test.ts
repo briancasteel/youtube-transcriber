@@ -1,17 +1,18 @@
 import request from 'supertest';
 import express from 'express';
 
-// Mock the WorkflowEngine
-const mockWorkflowEngine = {
+// Mock the ReActWorkflowEngine
+const mockReActEngine = {
   initialize: jest.fn().mockResolvedValue(undefined),
   executeWorkflow: jest.fn(),
   getExecution: jest.fn(),
+  getState: jest.fn(),
   cancelExecution: jest.fn(),
   cleanup: jest.fn(),
 };
 
-jest.mock('../services/WorkflowEngine', () => ({
-  WorkflowEngine: jest.fn().mockImplementation(() => mockWorkflowEngine),
+jest.mock('../services/ReActWorkflowEngine', () => ({
+  ReActWorkflowEngine: jest.fn().mockImplementation(() => mockReActEngine),
 }));
 
 import workflowRouter from './workflow';
@@ -42,150 +43,12 @@ const createTestApp = () => {
   return app;
 };
 
-describe('Workflow Routes', () => {
+describe('ReAct Workflow Routes', () => {
   let app: express.Application;
 
   beforeEach(() => {
     app = createTestApp();
     jest.clearAllMocks();
-  });
-
-  describe('POST /api/workflow/execute', () => {
-    const validWorkflowRequest = {
-      workflowDefinition: {
-        id: 'test-workflow',
-        name: 'Test Workflow',
-        description: 'A test workflow',
-        version: '1.0.0',
-        steps: [
-          {
-            id: 'step1',
-            name: 'Test Step',
-            service: 'test-service',
-            endpoint: '/test',
-            method: 'POST',
-            dependencies: [],
-          },
-        ],
-      },
-      input: {
-        testData: 'value',
-      },
-      metadata: {
-        userId: 'user123',
-        source: 'api',
-      },
-    };
-
-    it('should execute workflow successfully', async () => {
-      const executionId = 'exec-123-456';
-      mockWorkflowEngine.executeWorkflow.mockResolvedValueOnce(executionId);
-
-      const response = await request(app)
-        .post('/api/workflow/execute')
-        .send(validWorkflowRequest)
-        .expect(202);
-
-      expect(response.body.success).toBe(true);
-      expect(response.body.data.executionId).toBe(executionId);
-      expect(response.body.data.status).toBe('started');
-      expect(mockWorkflowEngine.executeWorkflow).toHaveBeenCalledWith(
-        validWorkflowRequest.workflowDefinition,
-        validWorkflowRequest.input,
-        expect.objectContaining({
-          userId: 'user123',
-          source: 'api',
-          priority: 'normal',
-          tags: [],
-        })
-      );
-    });
-
-    it('should handle missing workflowDefinition', async () => {
-      const invalidRequest = {
-        input: { test: 'data' },
-      };
-
-      const response = await request(app)
-        .post('/api/workflow/execute')
-        .send(invalidRequest)
-        .expect(400);
-
-      expect(response.body.success).toBe(false);
-      expect(response.body.error).toContain('Missing required fields');
-    });
-
-    it('should handle missing input', async () => {
-      const invalidRequest = {
-        workflowDefinition: validWorkflowRequest.workflowDefinition,
-      };
-
-      const response = await request(app)
-        .post('/api/workflow/execute')
-        .send(invalidRequest)
-        .expect(400);
-
-      expect(response.body.success).toBe(false);
-      expect(response.body.error).toContain('Missing required fields');
-    });
-
-    it('should handle invalid workflow definition structure', async () => {
-      const invalidRequest = {
-        workflowDefinition: {
-          name: 'Test Workflow', // missing id and steps
-        },
-        input: { test: 'data' },
-      };
-
-      const response = await request(app)
-        .post('/api/workflow/execute')
-        .send(invalidRequest)
-        .expect(400);
-
-      expect(response.body.success).toBe(false);
-      expect(response.body.error).toContain('Invalid workflow definition');
-    });
-
-    it('should handle workflow execution errors', async () => {
-      mockWorkflowEngine.executeWorkflow.mockRejectedValueOnce(
-        new Error('Workflow execution failed')
-      );
-
-      const response = await request(app)
-        .post('/api/workflow/execute')
-        .send(validWorkflowRequest)
-        .expect(500);
-
-      expect(response.body.success).toBe(false);
-      expect(response.body.error).toBe('Failed to execute workflow');
-      expect(response.body.details).toBe('Workflow execution failed');
-    });
-
-    it('should use default metadata values', async () => {
-      const executionId = 'exec-123-456';
-      mockWorkflowEngine.executeWorkflow.mockResolvedValueOnce(executionId);
-
-      const requestWithoutMetadata = {
-        workflowDefinition: validWorkflowRequest.workflowDefinition,
-        input: validWorkflowRequest.input,
-      };
-
-      await request(app)
-        .post('/api/workflow/execute')
-        .send(requestWithoutMetadata)
-        .expect(202);
-
-      expect(mockWorkflowEngine.executeWorkflow).toHaveBeenCalledWith(
-        validWorkflowRequest.workflowDefinition,
-        validWorkflowRequest.input,
-        expect.objectContaining({
-          userId: undefined,
-          source: 'api',
-          priority: 'normal',
-          tags: [],
-        })
-      );
-    });
   });
 
   describe('GET /api/workflow/execution/:executionId', () => {
@@ -194,14 +57,15 @@ describe('Workflow Routes', () => {
     it('should get execution status successfully', async () => {
       const mockExecution = {
         id: executionId,
-        workflowId: 'test-workflow',
+        workflowId: 'react-workflow',
         status: 'running',
+        goal: 'Test goal',
         progress: 50,
         createdAt: '2023-01-01T00:00:00Z',
         updatedAt: '2023-01-01T00:05:00Z',
       };
 
-      mockWorkflowEngine.getExecution.mockResolvedValueOnce(mockExecution);
+      mockReActEngine.getExecution.mockResolvedValueOnce(mockExecution);
 
       const response = await request(app)
         .get(`/api/workflow/execution/${executionId}`)
@@ -209,7 +73,7 @@ describe('Workflow Routes', () => {
 
       expect(response.body.success).toBe(true);
       expect(response.body.data).toEqual(mockExecution);
-      expect(mockWorkflowEngine.getExecution).toHaveBeenCalledWith(executionId);
+      expect(mockReActEngine.getExecution).toHaveBeenCalledWith(executionId);
     });
 
     it('should handle missing execution ID', async () => {
@@ -221,7 +85,7 @@ describe('Workflow Routes', () => {
     });
 
     it('should handle execution not found', async () => {
-      mockWorkflowEngine.getExecution.mockResolvedValueOnce(null);
+      mockReActEngine.getExecution.mockResolvedValueOnce(null);
 
       const response = await request(app)
         .get(`/api/workflow/execution/${executionId}`)
@@ -232,7 +96,7 @@ describe('Workflow Routes', () => {
     });
 
     it('should handle get execution errors', async () => {
-      mockWorkflowEngine.getExecution.mockRejectedValueOnce(
+      mockReActEngine.getExecution.mockRejectedValueOnce(
         new Error('Database connection failed')
       );
 
@@ -250,7 +114,7 @@ describe('Workflow Routes', () => {
     const executionId = 'exec-123-456';
 
     it('should cancel execution successfully', async () => {
-      mockWorkflowEngine.cancelExecution.mockResolvedValueOnce(true);
+      mockReActEngine.cancelExecution.mockResolvedValueOnce(true);
 
       const response = await request(app)
         .post(`/api/workflow/execution/${executionId}/cancel`)
@@ -259,11 +123,11 @@ describe('Workflow Routes', () => {
       expect(response.body.success).toBe(true);
       expect(response.body.data.executionId).toBe(executionId);
       expect(response.body.data.status).toBe('cancelled');
-      expect(mockWorkflowEngine.cancelExecution).toHaveBeenCalledWith(executionId);
+      expect(mockReActEngine.cancelExecution).toHaveBeenCalledWith(executionId);
     });
 
     it('should handle execution not found or not cancellable', async () => {
-      mockWorkflowEngine.cancelExecution.mockResolvedValueOnce(false);
+      mockReActEngine.cancelExecution.mockResolvedValueOnce(false);
 
       const response = await request(app)
         .post(`/api/workflow/execution/${executionId}/cancel`)
@@ -274,7 +138,7 @@ describe('Workflow Routes', () => {
     });
 
     it('should handle cancel execution errors', async () => {
-      mockWorkflowEngine.cancelExecution.mockRejectedValueOnce(
+      mockReActEngine.cancelExecution.mockRejectedValueOnce(
         new Error('Cancel operation failed')
       );
 
@@ -288,19 +152,116 @@ describe('Workflow Routes', () => {
     });
   });
 
+  describe('POST /api/workflow/youtube-transcription-react', () => {
+    const validYouTubeRequest = {
+      youtubeUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      options: {
+        language: 'en',
+        enhanceText: true,
+        generateSummary: false,
+        extractKeywords: false,
+      },
+    };
+
+    it('should start ReAct YouTube transcription workflow successfully', async () => {
+      const executionId = 'exec-react-youtube-123';
+      mockReActEngine.executeWorkflow.mockResolvedValueOnce(executionId);
+
+      const response = await request(app)
+        .post('/api/workflow/youtube-transcription-react')
+        .send(validYouTubeRequest)
+        .expect(202);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.executionId).toBe(executionId);
+      expect(response.body.data.workflowId).toBe('youtube-transcription-react');
+      expect(response.body.data.status).toBe('started');
+      expect(response.body.data.goal).toContain('Transcribe YouTube video');
+      expect(response.body.data.reasoningUrl).toContain('/reasoning');
+
+      expect(mockReActEngine.executeWorkflow).toHaveBeenCalledWith(
+        expect.stringContaining('Transcribe YouTube video'),
+        expect.objectContaining({
+          youtubeUrl: validYouTubeRequest.youtubeUrl,
+          language: 'en',
+          enhanceText: true,
+        }),
+        expect.objectContaining({
+          source: 'react-youtube-transcription-api',
+          priority: 'normal',
+          tags: expect.arrayContaining(['youtube', 'transcription', 'react', 'reasoning']),
+        })
+      );
+    });
+
+    it('should handle missing youtubeUrl', async () => {
+      const invalidRequest = {
+        options: {},
+      };
+
+      const response = await request(app)
+        .post('/api/workflow/youtube-transcription-react')
+        .send(invalidRequest)
+        .expect(400);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe('Missing required field: youtubeUrl');
+    });
+
+    it('should use default options', async () => {
+      const executionId = 'exec-react-youtube-123';
+      mockReActEngine.executeWorkflow.mockResolvedValueOnce(executionId);
+
+      const minimalRequest = {
+        youtubeUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      };
+
+      await request(app)
+        .post('/api/workflow/youtube-transcription-react')
+        .send(minimalRequest)
+        .expect(202);
+
+      expect(mockReActEngine.executeWorkflow).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          youtubeUrl: minimalRequest.youtubeUrl,
+          language: 'en',
+          enhanceText: false,
+          generateSummary: false,
+          extractKeywords: false,
+        }),
+        expect.any(Object)
+      );
+    });
+
+    it('should handle workflow execution errors', async () => {
+      mockReActEngine.executeWorkflow.mockRejectedValueOnce(
+        new Error('ReAct YouTube workflow failed')
+      );
+
+      const response = await request(app)
+        .post('/api/workflow/youtube-transcription-react')
+        .send(validYouTubeRequest)
+        .expect(500);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe('Failed to execute ReAct YouTube transcription workflow');
+      expect(response.body.details).toBe('ReAct YouTube workflow failed');
+    });
+  });
+
   describe('POST /api/workflow/youtube-transcription', () => {
     const validYouTubeRequest = {
       videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
       options: {
         language: 'en',
-        transcriptionModel: 'whisper-1',
-        enhancementType: 'grammar_and_punctuation',
+        enhanceText: true,
       },
     };
 
-    it('should start YouTube transcription workflow successfully', async () => {
+    it('should start YouTube transcription workflow with ReAct engine', async () => {
       const executionId = 'exec-youtube-123';
-      mockWorkflowEngine.executeWorkflow.mockResolvedValueOnce(executionId);
+      mockReActEngine.executeWorkflow.mockResolvedValueOnce(executionId);
 
       const response = await request(app)
         .post('/api/workflow/youtube-transcription')
@@ -309,36 +270,48 @@ describe('Workflow Routes', () => {
 
       expect(response.body.success).toBe(true);
       expect(response.body.data.executionId).toBe(executionId);
-      expect(response.body.data.workflowId).toBe('youtube-transcription-v1');
+      expect(response.body.data.workflowId).toBe('youtube-transcription-react');
       expect(response.body.data.status).toBe('started');
-      expect(response.body.data.estimatedDuration).toBe('10-30 minutes');
+      expect(response.body.data.goal).toContain('Transcribe YouTube video');
 
-      expect(mockWorkflowEngine.executeWorkflow).toHaveBeenCalledWith(
+      expect(mockReActEngine.executeWorkflow).toHaveBeenCalledWith(
+        expect.stringContaining('Transcribe YouTube video'),
         expect.objectContaining({
-          id: 'youtube-transcription-v1',
-          name: 'YouTube Video Transcription',
-          steps: expect.arrayContaining([
-            expect.objectContaining({ id: 'download-video' }),
-            expect.objectContaining({ id: 'extract-audio' }),
-            expect.objectContaining({ id: 'transcribe-audio' }),
-            expect.objectContaining({ id: 'enhance-transcription' }),
-          ]),
-        }),
-        expect.objectContaining({
-          videoUrl: validYouTubeRequest.videoUrl,
+          youtubeUrl: validYouTubeRequest.videoUrl,
           language: 'en',
-          transcriptionModel: 'whisper-1',
-          enhancementType: 'grammar_and_punctuation',
+          enhanceText: true,
         }),
         expect.objectContaining({
           source: 'youtube-transcription-api',
-          priority: 'normal',
-          tags: expect.arrayContaining(['youtube', 'transcription']),
+          tags: expect.arrayContaining(['youtube', 'transcription', 'react']),
         })
       );
     });
 
-    it('should handle missing videoUrl', async () => {
+    it('should support youtubeUrl field name', async () => {
+      const executionId = 'exec-youtube-123';
+      mockReActEngine.executeWorkflow.mockResolvedValueOnce(executionId);
+
+      const requestWithYoutubeUrl = {
+        youtubeUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        options: { language: 'en' },
+      };
+
+      await request(app)
+        .post('/api/workflow/youtube-transcription')
+        .send(requestWithYoutubeUrl)
+        .expect(202);
+
+      expect(mockReActEngine.executeWorkflow).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          youtubeUrl: requestWithYoutubeUrl.youtubeUrl,
+        }),
+        expect.any(Object)
+      );
+    });
+
+    it('should handle missing URL', async () => {
       const invalidRequest = {
         options: {},
       };
@@ -349,84 +322,199 @@ describe('Workflow Routes', () => {
         .expect(400);
 
       expect(response.body.success).toBe(false);
-      expect(response.body.error).toBe('Missing required field: videoUrl');
+      expect(response.body.error).toBe('Missing required field: youtubeUrl or videoUrl');
+    });
+  });
+
+  describe('POST /api/workflow/react', () => {
+    const validReActRequest = {
+      goal: 'Process some data and generate a report',
+      context: {
+        dataSource: 'test-data.csv',
+        outputFormat: 'pdf',
+      },
+      metadata: {
+        userId: 'user123',
+        priority: 'high',
+      },
+    };
+
+    it('should start generic ReAct workflow successfully', async () => {
+      const executionId = 'exec-react-123';
+      mockReActEngine.executeWorkflow.mockResolvedValueOnce(executionId);
+
+      const response = await request(app)
+        .post('/api/workflow/react')
+        .send(validReActRequest)
+        .expect(202);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.executionId).toBe(executionId);
+      expect(response.body.data.workflowId).toBe('react-workflow');
+      expect(response.body.data.status).toBe('started');
+      expect(response.body.data.goal).toBe(validReActRequest.goal);
+      expect(response.body.data.reasoningUrl).toContain('/reasoning');
+
+      expect(mockReActEngine.executeWorkflow).toHaveBeenCalledWith(
+        validReActRequest.goal,
+        validReActRequest.context,
+        expect.objectContaining({
+          userId: 'user123',
+          source: 'react-api',
+          priority: 'high',
+          tags: expect.arrayContaining(['react', 'reasoning']),
+        })
+      );
     });
 
-    it('should use default options', async () => {
-      const executionId = 'exec-youtube-123';
-      mockWorkflowEngine.executeWorkflow.mockResolvedValueOnce(executionId);
+    it('should handle missing goal', async () => {
+      const invalidRequest = {
+        context: { test: 'data' },
+      };
+
+      const response = await request(app)
+        .post('/api/workflow/react')
+        .send(invalidRequest)
+        .expect(400);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe('Missing required field: goal');
+    });
+
+    it('should use default values for optional fields', async () => {
+      const executionId = 'exec-react-123';
+      mockReActEngine.executeWorkflow.mockResolvedValueOnce(executionId);
 
       const minimalRequest = {
-        videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        goal: 'Simple test goal',
       };
 
       await request(app)
-        .post('/api/workflow/youtube-transcription')
+        .post('/api/workflow/react')
         .send(minimalRequest)
         .expect(202);
 
-      expect(mockWorkflowEngine.executeWorkflow).toHaveBeenCalledWith(
-        expect.any(Object),
+      expect(mockReActEngine.executeWorkflow).toHaveBeenCalledWith(
+        minimalRequest.goal,
+        {},
         expect.objectContaining({
-          videoUrl: minimalRequest.videoUrl,
-          language: 'auto',
-          transcriptionModel: 'whisper-1',
-          enhancementType: 'grammar_and_punctuation',
-        }),
-        expect.any(Object)
+          userId: undefined,
+          source: 'react-api',
+          priority: 'normal',
+          tags: expect.arrayContaining(['react', 'reasoning']),
+        })
       );
     });
 
     it('should handle workflow execution errors', async () => {
-      mockWorkflowEngine.executeWorkflow.mockRejectedValueOnce(
-        new Error('YouTube workflow failed')
+      mockReActEngine.executeWorkflow.mockRejectedValueOnce(
+        new Error('ReAct workflow failed')
       );
 
       const response = await request(app)
-        .post('/api/workflow/youtube-transcription')
-        .send(validYouTubeRequest)
+        .post('/api/workflow/react')
+        .send(validReActRequest)
         .expect(500);
 
       expect(response.body.success).toBe(false);
-      expect(response.body.error).toBe('Failed to execute YouTube transcription workflow');
-      expect(response.body.details).toBe('YouTube workflow failed');
+      expect(response.body.error).toBe('Failed to execute ReAct workflow');
+      expect(response.body.details).toBe('ReAct workflow failed');
     });
+  });
 
-    it('should include custom tags and userId', async () => {
-      const executionId = 'exec-youtube-123';
-      mockWorkflowEngine.executeWorkflow.mockResolvedValueOnce(executionId);
+  describe('GET /api/workflow/react/:executionId/reasoning', () => {
+    const executionId = 'exec-react-123';
 
-      const requestWithExtras = {
-        ...validYouTubeRequest,
-        userId: 'user456',
-        options: {
-          ...validYouTubeRequest.options,
-          priority: 'high',
-          tags: ['custom', 'tag'],
-        },
+    it('should get reasoning trace successfully', async () => {
+      const mockState = {
+        executionId,
+        goal: 'Test goal',
+        status: 'running',
+        currentThought: 'Analyzing the situation...',
+        reasoningTrace: [
+          {
+            step: 1,
+            thought: 'I need to understand the goal',
+            reasoning: 'The user wants me to process data',
+            decision: 'Start by analyzing the input',
+            confidence: 0.9,
+          },
+        ],
+        actionHistory: [
+          {
+            id: 'action-1',
+            type: 'analyze_data',
+            status: 'completed',
+            result: { analysis: 'complete' },
+          },
+        ],
+        observations: [
+          {
+            id: 'obs-1',
+            content: 'Data analysis completed successfully',
+            timestamp: '2023-01-01T00:00:00Z',
+          },
+        ],
       };
 
-      await request(app)
-        .post('/api/workflow/youtube-transcription')
-        .send(requestWithExtras)
-        .expect(202);
+      mockReActEngine.getState.mockResolvedValueOnce(mockState);
 
-      expect(mockWorkflowEngine.executeWorkflow).toHaveBeenCalledWith(
-        expect.any(Object),
-        expect.any(Object),
-        expect.objectContaining({
-          userId: 'user456',
-          priority: 'high',
-          tags: expect.arrayContaining(['youtube', 'transcription', 'custom', 'tag']),
-        })
+      const response = await request(app)
+        .get(`/api/workflow/react/${executionId}/reasoning`)
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.executionId).toBe(executionId);
+      expect(response.body.data.goal).toBe(mockState.goal);
+      expect(response.body.data.reasoningTrace).toEqual(mockState.reasoningTrace);
+      expect(response.body.data.progress).toEqual({
+        reasoningSteps: 1,
+        actionsExecuted: 1,
+        successfulActions: 1,
+        failedActions: 0,
+      });
+
+      expect(mockReActEngine.getState).toHaveBeenCalledWith(executionId);
+    });
+
+    it('should handle missing execution ID', async () => {
+      const response = await request(app)
+        .get('/api/workflow/react//reasoning')
+        .expect(404);
+
+      // Express will return 404 for missing route parameter
+    });
+
+    it('should handle execution not found', async () => {
+      mockReActEngine.getState.mockResolvedValueOnce(null);
+
+      const response = await request(app)
+        .get(`/api/workflow/react/${executionId}/reasoning`)
+        .expect(404);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe('ReAct workflow execution not found');
+    });
+
+    it('should handle get state errors', async () => {
+      mockReActEngine.getState.mockRejectedValueOnce(
+        new Error('State retrieval failed')
       );
+
+      const response = await request(app)
+        .get(`/api/workflow/react/${executionId}/reasoning`)
+        .expect(500);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe('Failed to get ReAct reasoning trace');
+      expect(response.body.details).toBe('State retrieval failed');
     });
   });
 
   describe('Error Handling', () => {
     it('should handle malformed JSON requests', async () => {
       const response = await request(app)
-        .post('/api/workflow/execute')
+        .post('/api/workflow/react')
         .set('Content-Type', 'application/json')
         .send('{ invalid json }')
         .expect(400);
@@ -438,17 +526,17 @@ describe('Workflow Routes', () => {
 
     it('should handle empty request body', async () => {
       const response = await request(app)
-        .post('/api/workflow/execute')
+        .post('/api/workflow/react')
         .send({})
         .expect(400);
 
       expect(response.body.success).toBe(false);
-      expect(response.body.error).toContain('Missing required fields');
+      expect(response.body.error).toContain('Missing required field: goal');
     });
 
     it('should include request ID in all responses', async () => {
       const response = await request(app)
-        .post('/api/workflow/execute')
+        .post('/api/workflow/react')
         .send({})
         .expect(400);
 
@@ -457,54 +545,12 @@ describe('Workflow Routes', () => {
 
     it('should include timestamp in all responses', async () => {
       const response = await request(app)
-        .post('/api/workflow/execute')
+        .post('/api/workflow/react')
         .send({})
         .expect(400);
 
       expect(response.body.timestamp).toBeDefined();
       expect(new Date(response.body.timestamp)).toBeInstanceOf(Date);
-    });
-  });
-
-  describe('Workflow Definition Validation', () => {
-    it('should validate workflow definition has required fields', async () => {
-      const testCases = [
-        {
-          description: 'missing id',
-          workflowDefinition: {
-            name: 'Test',
-            steps: [],
-          },
-        },
-        {
-          description: 'missing steps',
-          workflowDefinition: {
-            id: 'test',
-            name: 'Test',
-          },
-        },
-        {
-          description: 'steps not array',
-          workflowDefinition: {
-            id: 'test',
-            name: 'Test',
-            steps: 'not-array',
-          },
-        },
-      ];
-
-      for (const testCase of testCases) {
-        const response = await request(app)
-          .post('/api/workflow/execute')
-          .send({
-            workflowDefinition: testCase.workflowDefinition,
-            input: { test: 'data' },
-          })
-          .expect(400);
-
-        expect(response.body.success).toBe(false);
-        expect(response.body.error).toContain('Invalid workflow definition');
-      }
     });
   });
 });
