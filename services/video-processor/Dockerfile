@@ -43,12 +43,16 @@ COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nodejs:nodejs /app/package*.json ./
 
-# Create directories for downloads and output
-RUN mkdir -p /app/downloads /app/output /app/logs \
-    && chown -R nodejs:nodejs /app/downloads /app/output /app/logs
+# Create directories for downloads, output, and ytdl cache
+RUN mkdir -p /app/downloads /app/output /app/logs /tmp/ytdl-cache \
+    && chmod -R 777 /app /tmp
 
-# Switch to non-root user
-USER nodejs
+# Set environment variables
+ENV YTDL_CACHE_DIR=/tmp/ytdl-cache
+ENV TMPDIR=/tmp
+
+# Note: Running as root for development to avoid permission issues with ytdl-core
+# USER nodejs
 
 # Expose port
 EXPOSE 8002

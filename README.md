@@ -99,7 +99,21 @@ This will:
 ### Transcription API
 
 ```bash
-# Start transcription
+# Start Langgraph-powered transcription (Recommended)
+POST /api/workflow/youtube-transcription-langgraph
+{
+  "youtubeUrl": "https://www.youtube.com/watch?v=VIDEO_ID",
+  "options": {
+    "language": "en",
+    "enhanceText": true,
+    "generateSummary": true,
+    "extractKeywords": true,
+    "quality": "highestaudio",
+    "format": "mp3"
+  }
+}
+
+# Start transcription (Legacy)
 POST /api/transcribe
 {
   "youtubeUrl": "https://www.youtube.com/watch?v=VIDEO_ID",
@@ -111,14 +125,11 @@ POST /api/transcribe
   }
 }
 
-# Get job status
-GET /api/transcribe/{jobId}
+# Get workflow execution status
+GET /api/workflow/execution/{executionId}
 
-# Get transcription result
-GET /api/transcribe/{jobId}/result
-
-# Cancel job
-POST /api/transcribe/{jobId}/cancel
+# Cancel workflow execution
+POST /api/workflow/execution/{executionId}/cancel
 
 # Get video info
 GET /api/video-info?url=https://www.youtube.com/watch?v=VIDEO_ID

@@ -21,6 +21,7 @@
     "compression": "^1.7.4",
     "express-rate-limit": "^7.1.5",
     "ytdl-core": "^4.11.5",
+    "@distube/ytdl-core": "^4.14.4",
     "fluent-ffmpeg": "^2.1.2",
     "redis": "^4.6.12",
     "zod": "^3.22.4",

@@ -47,7 +47,7 @@ router.post('/youtube-transcription', transcriptionRateLimiter, asyncHandler(asy
       videoUrl: url,
       options: {
         language: whisperOptions?.language || 'auto',
-        transcriptionModel: whisperOptions?.model || 'base',
+        transcriptionModel: whisperOptions?.model || 'whisper-1',
         enhancementType: enhancementOptions?.addPunctuation ? 'grammar_and_punctuation' : 'none',
         priority: 'normal',
         tags: ['youtube', 'transcription']

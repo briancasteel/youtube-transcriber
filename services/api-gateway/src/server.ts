@@ -9,6 +9,7 @@ import { requestLogger } from './middleware/requestLogger';
 import { rateLimiter } from './middleware/rateLimiter';
 import { transcriptionRoutes } from './routes/transcription';
 import { workflowRoutes } from './routes/workflow';
+import { videoRoutes } from './routes/video';
 import { healthRoutes } from './routes/health';
 
 const app = express();
@@ -59,6 +60,7 @@ app.use(rateLimiter);
 app.use('/health', healthRoutes);
 app.use('/api', transcriptionRoutes);
 app.use('/api/workflow', workflowRoutes);
+app.use('/api/video', videoRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -71,6 +73,9 @@ app.get('/', (req, res) => {
       health: '/health',
       transcription: '/api/transcribe',
       videoInfo: '/api/video-info',
+      videoProcessing: '/api/video/process',
+      videoStatus: '/api/video/status/{jobId}',
+      videoInfoDirect: '/api/video/info',
       workflow: '/api/workflow/youtube-transcription',
       workflowStatus: '/api/workflow/execution/{id}',
       workflowCancel: '/api/workflow/execution/{id}/cancel',

@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
-import ytdl from 'ytdl-core';
+import ytdl from '@distube/ytdl-core';
 import { v4 as uuidv4 } from 'uuid';
 import { redisClient } from '../server';
 import { logger } from '../utils/logger';

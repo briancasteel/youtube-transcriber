@@ -71,14 +71,51 @@ fi
 
 cd ../..
 
+# Check if we can build the Workflow Service (ReAct engine)
+echo "6. Testing Workflow Service build..."
+cd services/workflow-service
+if npm install > /dev/null 2>&1; then
+    echo "✅ Workflow Service dependencies installed"
+else
+    echo "❌ Failed to install Workflow Service dependencies"
+    exit 1
+fi
+
+if npm run build > /dev/null 2>&1; then
+    echo "✅ Workflow Service builds successfully"
+else
+    echo "❌ Failed to build Workflow Service"
+    exit 1
+fi
+
+cd ../..
+
 echo ""
 echo "🎉 All checks passed! You can now run:"
 echo "   docker compose up --build"
 echo ""
-echo "📊 This will start:"
+echo "📊 This will start all services:"
 echo "   - Redis (port 6379)"
 echo "   - API Gateway (port 8000)"
+echo "   - Video Processor (port 8002)"
+echo "   - Transcription Service (port 8003)"
+echo "   - Workflow Service (port 8004) - with ReAct engine!"
+echo "   - LLM Service (port 8005)"
+echo "   - Frontend (port 3000)"
 echo ""
 echo "🔗 Test endpoints:"
 echo "   - Health: http://localhost:8000/health"
 echo "   - API Info: http://localhost:8000/"
+echo "   - Workflow Health: http://localhost:8004/health"
+echo ""
+echo "🧠 ReAct Workflow Testing:"
+echo "   cd services/workflow-service"
+echo "   node test-react.js youtube    # Test ReAct YouTube transcription"
+echo "   node test-react.js generic     # Test generic ReAct workflow"
+echo "   node test-react.js both        # Test both workflows"
+echo ""
+echo "📚 ReAct Documentation:"
+echo "   services/workflow-service/README-ReAct.md"
+echo ""
+echo "🚀 Quick ReAct Test (after services are running):"
+echo "   ./scripts/test-react-workflow.sh"
