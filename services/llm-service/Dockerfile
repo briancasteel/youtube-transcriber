@@ -37,8 +37,10 @@ RUN apk add --no-cache \
     bash \
     git
 
-# Install Whisper (with --break-system-packages for Alpine Linux)
-RUN pip3 install --no-cache-dir --break-system-packages openai-whisper
+# Install Whisper with CPU-only torch (lighter and more compatible)
+RUN pip3 install --no-cache-dir --break-system-packages \
+    torch torchaudio --index-url https://download.pytorch.org/whl/cpu && \
+    pip3 install --no-cache-dir --break-system-packages openai-whisper
 
 # Create app user
 RUN addgroup -g 1001 -S nodejs && \
@@ -48,7 +50,7 @@ RUN addgroup -g 1001 -S nodejs && \
 WORKDIR /app
 
 # Create necessary directories
-RUN mkdir -p /app/models /app/uploads /app/output /app/logs && \
+RUN mkdir -p /app/models /app/uploads /app/output /app/logs /app/scripts && \
     chown -R nodejs:nodejs /app
 
 # Copy package files and install production dependencies only
@@ -59,7 +61,8 @@ RUN npm install --only=production && npm cache clean --force
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 
 # Create Ollama setup script
-COPY --chown=nodejs:nodejs scripts/ ./scripts/
+COPY --chown=nodejs:nodejs scripts/setup-ollama.sh ./scripts/setup-ollama.sh
+RUN chmod +x ./scripts/setup-ollama.sh
 
 # Switch to non-root user
 USER nodejs

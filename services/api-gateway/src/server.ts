@@ -8,6 +8,7 @@ import { errorHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/requestLogger';
 import { rateLimiter } from './middleware/rateLimiter';
 import { transcriptionRoutes } from './routes/transcription';
+import { workflowRoutes } from './routes/workflow';
 import { healthRoutes } from './routes/health';
 
 const app = express();
@@ -57,6 +58,7 @@ app.use(rateLimiter);
 // Routes
 app.use('/health', healthRoutes);
 app.use('/api', transcriptionRoutes);
+app.use('/api/workflow', workflowRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -69,6 +71,9 @@ app.get('/', (req, res) => {
       health: '/health',
       transcription: '/api/transcribe',
       videoInfo: '/api/video-info',
+      workflow: '/api/workflow/youtube-transcription',
+      workflowStatus: '/api/workflow/execution/{id}',
+      workflowCancel: '/api/workflow/execution/{id}/cancel',
     }
   });
 });
@@ -91,7 +96,7 @@ app.use(errorHandler);
 const server = app.listen(port, () => {
   logger.info(`API Gateway started on port ${port}`);
   logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  logger.info(`Workflow Service URL: ${process.env.WORKFLOW_SERVICE_URL || 'http://workflow-service:8001'}`);
+  logger.info(`Workflow Service URL: ${process.env.WORKFLOW_SERVICE_URL || 'http://workflow-service:8004'}`);
 });
 
 // Handle graceful shutdown
