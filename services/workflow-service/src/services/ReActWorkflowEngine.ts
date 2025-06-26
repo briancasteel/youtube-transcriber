@@ -118,15 +118,8 @@ export class ReActWorkflowEngine {
         name: 'transcription-service',
         baseUrl: process.env['TRANSCRIPTION_SERVICE_URL'] || 'http://transcription-service:8003',
         healthEndpoint: '/health',
-        timeout: 30000,
+        timeout: 300000, // Increased timeout for transcription
         retries: 3
-      },
-      {
-        name: 'llm-service',
-        baseUrl: process.env['LLM_SERVICE_URL'] || 'http://llm-service:8005',
-        healthEndpoint: '/health',
-        timeout: 300000,
-        retries: 2
       }
     ];
 
@@ -623,7 +616,7 @@ class ReasoningEngine {
 
   private performReasoning(state: ReActState, thought: string): string {
     // Perform structured reasoning based on the thought
-    const availableServices = ['video-processor', 'transcription-service', 'llm-service'];
+    const availableServices = ['video-processor', 'transcription-service'];
     const completedActionTypes = state.actionHistory
       .filter(a => a.status === 'completed')
       .map(a => a.action.type);
@@ -767,11 +760,16 @@ class ReasoningEngine {
           id: actionId,
           type: 'enhance_text',
           description: 'Enhance transcribed text with AI',
-          service: 'llm-service',
-          endpoint: '/api/llm/enhance',
+          service: 'transcription-service',
+          endpoint: '/api/transcription/enhance',
           method: 'POST',
           payload: {
-            text: this.getTranscriptionFromState(state)
+            text: this.getTranscriptionFromState(state),
+            enhancementOptions: {
+              addPunctuation: true,
+              fixGrammar: true,
+              improveClarity: state.context.enhanceText || false
+            }
           },
           expectedOutcome: 'Enhanced and formatted text'
         };

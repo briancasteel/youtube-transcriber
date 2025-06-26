@@ -91,12 +91,20 @@ services:
       - NODE_ENV=development
       - PORT=8003
       - REDIS_URL=redis://redis:6379
+      - OLLAMA_URL=http://ollama:11434
+      - OLLAMA_DEFAULT_MODEL=llama2:7b
       - LOG_LEVEL=debug
-      - LLM_SERVICE_URL=http://llm-service:8005
+      - WHISPER_MODELS_DIR=/app/models
+      - UPLOAD_DIR=/app/uploads
+      - OUTPUT_DIR=/app/output
     volumes:
       - ./services/transcription-service/src:/app/src
+      - whisper-models:/app/models
+      - transcription-uploads:/app/uploads
+      - transcription-output:/app/output
     depends_on:
       - redis
+      - ollama
     networks:
       - youtube-transcriber
 
@@ -113,7 +121,6 @@ services:
       - REDIS_URL=redis://redis:6379
       - VIDEO_PROCESSOR_URL=http://video-processor:8002
       - TRANSCRIPTION_SERVICE_URL=http://transcription-service:8003
-      - LLM_SERVICE_URL=http://llm-service:8005
       - LOG_LEVEL=debug
     volumes:
       - ./services/workflow-service/src:/app/src
@@ -121,7 +128,6 @@ services:
       - redis
       - video-processor
       - transcription-service
-      - llm-service
     networks:
       - youtube-transcriber
     healthcheck:
@@ -149,33 +155,6 @@ services:
       retries: 3
       start_period: 60s
 
-  # LLM Service - Whisper + Ollama integration
-  llm-service:
-    build:
-      context: ./services/llm-service
-      dockerfile: Dockerfile
-    ports:
-      - "8005:8005"
-    environment:
-      - NODE_ENV=development
-      - PORT=8005
-      - REDIS_URL=redis://redis:6379
-      - OLLAMA_URL=http://ollama:11434
-      - OLLAMA_DEFAULT_MODEL=llama2:7b
-      - LOG_LEVEL=debug
-      - WHISPER_MODELS_DIR=/app/models
-      - UPLOAD_DIR=/app/uploads
-      - OUTPUT_DIR=/app/output
-    volumes:
-      - ./services/llm-service/src:/app/src
-      - whisper-models:/app/models
-      - llm-uploads:/app/uploads
-      - llm-output:/app/output
-    depends_on:
-      - redis
-      - ollama
-    networks:
-      - youtube-transcriber
 
 volumes:
   redis-data:
@@ -188,9 +167,9 @@ volumes:
     driver: local
   whisper-models:
     driver: local
-  llm-uploads:
+  transcription-uploads:
     driver: local
-  llm-output:
+  transcription-output:
     driver: local
 
 networks:
