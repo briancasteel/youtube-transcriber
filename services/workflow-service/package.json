@@ -41,7 +41,7 @@
     "@distube/ytdl-core": "^4.13.5",
     "fluent-ffmpeg": "^2.1.2",
     "openai": "^4.20.1",
-    "node-whisper": "^1.0.0"
+    "node-whisper": "^2024.11.13"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
