@@ -37,7 +37,11 @@
     "node-cron": "^3.0.3",
     "@langchain/core": "^0.3.15",
     "@langchain/langgraph": "^0.2.19",
-    "langchain": "^0.3.5"
+    "langchain": "^0.3.5",
+    "@distube/ytdl-core": "^4.13.5",
+    "fluent-ffmpeg": "^2.1.2",
+    "openai": "^4.20.1",
+    "node-whisper": "^1.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
@@ -48,6 +52,7 @@
     "@types/uuid": "^9.0.7",
     "@types/node-cron": "^3.0.11",
     "@types/supertest": "^2.0.16",
+    "@types/fluent-ffmpeg": "^2.1.21",
     "@typescript-eslint/eslint-plugin": "^6.13.1",
     "@typescript-eslint/parser": "^6.13.1",
     "eslint": "^8.54.0",

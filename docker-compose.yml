@@ -46,7 +46,6 @@ services:
       - NODE_ENV=development
       - PORT=8000
       - WORKFLOW_SERVICE_URL=http://workflow-service:8004
-      - VIDEO_PROCESSOR_URL=http://video-processor:8002
       - REDIS_URL=redis://redis:6379
       - LOG_LEVEL=debug
     volumes:
@@ -54,61 +53,12 @@ services:
       - ./shared:/app/shared
     depends_on:
       - redis
+      - workflow-service
     networks:
       - youtube-transcriber
 
-  # Video Processor - YouTube video download and processing
-  video-processor:
-    build:
-      context: ./services/video-processor
-      dockerfile: Dockerfile
-    ports:
-      - "8002:8002"
-    environment:
-      - NODE_ENV=development
-      - PORT=8002
-      - REDIS_URL=redis://redis:6379
-      - LOG_LEVEL=debug
-      - DOWNLOAD_DIR=/app/downloads
-      - OUTPUT_DIR=/app/output
-    volumes:
-      - ./services/video-processor/src:/app/src
-      - video-downloads:/app/downloads
-      - video-output:/app/output
-    depends_on:
-      - redis
-    networks:
-      - youtube-transcriber
 
-  # Transcription Service - Audio transcription coordination
-  transcription-service:
-    build:
-      context: ./services/transcription-service
-      dockerfile: Dockerfile
-    ports:
-      - "8003:8003"
-    environment:
-      - NODE_ENV=development
-      - PORT=8003
-      - REDIS_URL=redis://redis:6379
-      - OLLAMA_URL=http://ollama:11434
-      - OLLAMA_DEFAULT_MODEL=llama2:7b
-      - LOG_LEVEL=debug
-      - WHISPER_MODELS_DIR=/app/models
-      - UPLOAD_DIR=/app/uploads
-      - OUTPUT_DIR=/app/output
-    volumes:
-      - ./services/transcription-service/src:/app/src
-      - whisper-models:/app/models
-      - transcription-uploads:/app/uploads
-      - transcription-output:/app/output
-    depends_on:
-      - redis
-      - ollama
-    networks:
-      - youtube-transcriber
-
-  # Workflow Service - Orchestrates the complete transcription pipeline
+  # Workflow Service - Integrated ReAct workflow engine with media processing
   workflow-service:
     build:
       context: ./services/workflow-service
@@ -119,15 +69,22 @@ services:
       - NODE_ENV=development
       - PORT=8004
       - REDIS_URL=redis://redis:6379
-      - VIDEO_PROCESSOR_URL=http://video-processor:8002
-      - TRANSCRIPTION_SERVICE_URL=http://transcription-service:8003
+      - OLLAMA_URL=http://ollama:11434
+      - OLLAMA_DEFAULT_MODEL=llama2:7b
       - LOG_LEVEL=debug
+      - DOWNLOAD_DIR=/app/downloads
+      - OUTPUT_DIR=/app/output
+      - WHISPER_MODELS_DIR=/app/models
+      # Optional: Add OpenAI API key for Whisper API instead of local
+      # - OPENAI_API_KEY=your_openai_api_key_here
     volumes:
       - ./services/workflow-service/src:/app/src
+      - workflow-downloads:/app/downloads
+      - workflow-output:/app/output
+      - whisper-models:/app/models
     depends_on:
       - redis
-      - video-processor
-      - transcription-service
+      - ollama
     networks:
       - youtube-transcriber
     healthcheck:
@@ -159,17 +116,13 @@ services:
 volumes:
   redis-data:
     driver: local
-  video-downloads:
-    driver: local
-  video-output:
-    driver: local
   ollama-data:
     driver: local
   whisper-models:
     driver: local
-  transcription-uploads:
+  workflow-downloads:
     driver: local
-  transcription-output:
+  workflow-output:
     driver: local
 
 networks:

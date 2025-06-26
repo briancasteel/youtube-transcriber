@@ -1,12 +1,14 @@
-import { createClient, RedisClientType } from 'redis';
 import { v4 as uuidv4 } from 'uuid';
 import axios, { AxiosInstance } from 'axios';
+import fs from 'fs/promises';
+import path from 'path';
 import logger from '../utils/logger';
 import {
   WorkflowExecution,
   WorkflowEvent,
   ServiceEndpoint
 } from '../types/workflow';
+import { IntegratedMediaProcessor } from './IntegratedMediaProcessor';
 
 // ReAct-specific types
 export interface ReActState {
@@ -84,6 +86,7 @@ export class ReActWorkflowEngine {
   private reasoningEngine: ReasoningEngine;
   private actionExecutor: ActionExecutor;
   private observationProcessor: ObservationProcessor;
+  private mediaProcessor: IntegratedMediaProcessor;
 
   constructor() {
     const redisUrl = process.env['REDIS_URL'] || 'redis://localhost:6379';
@@ -98,8 +101,9 @@ export class ReActWorkflowEngine {
     });
 
     this.serviceEndpoints = new Map();
+    this.mediaProcessor = new IntegratedMediaProcessor();
     this.reasoningEngine = new ReasoningEngine();
-    this.actionExecutor = new ActionExecutor(this.httpClient, this.serviceEndpoints);
+    this.actionExecutor = new ActionExecutor(this.httpClient, this.serviceEndpoints, this.mediaProcessor);
     this.observationProcessor = new ObservationProcessor();
     
     this.initializeServiceEndpoints();
@@ -826,7 +830,8 @@ class ReasoningEngine {
 class ActionExecutor {
   constructor(
     private httpClient: AxiosInstance,
-    private serviceEndpoints: Map<string, ServiceEndpoint>
+    private serviceEndpoints: Map<string, ServiceEndpoint>,
+    private mediaProcessor: IntegratedMediaProcessor
   ) {}
 
   async executeAction(action: PlannedAction, state: ReActState): Promise<ActionStep> {
@@ -841,29 +846,8 @@ class ActionExecutor {
     try {
       actionStep.status = 'executing';
       
-      if (action.service === 'internal') {
-        // Handle internal actions
-        actionStep.result = await this.executeInternalAction(action, state);
-      } else {
-        // Handle external service actions
-        const endpoint = this.serviceEndpoints.get(action.service);
-        if (!endpoint) {
-          throw new Error(`Service endpoint not found: ${action.service}`);
-        }
-
-        const url = `${endpoint.baseUrl}${action.endpoint}`;
-        const startTime = Date.now();
-
-        const response = await this.httpClient.request({
-          method: action.method as any,
-          url,
-          data: action.method !== 'GET' ? action.payload : undefined,
-          params: action.method === 'GET' ? action.payload : undefined,
-          timeout: endpoint.timeout
-        });
-
-        actionStep.result = response.data;
-      }
+      // Use integrated media processor for all actions
+      actionStep.result = await this.executeIntegratedAction(action, state);
 
       actionStep.status = 'completed';
       actionStep.endTime = new Date().toISOString();
@@ -891,6 +875,86 @@ class ActionExecutor {
     }
 
     return actionStep;
+  }
+
+  private async executeIntegratedAction(action: PlannedAction, state: ReActState): Promise<any> {
+    // Use integrated media processor for all actions
+    switch (action.type) {
+      case 'validate_url':
+        const validation = await this.mediaProcessor.validateYouTubeUrl(action.payload.url);
+        return {
+          valid: validation.valid,
+          url: action.payload.url,
+          error: validation.error
+        };
+
+      case 'get_video_info':
+        const videoInfo = await this.mediaProcessor.getVideoInfo(action.payload.url);
+        return {
+          data: videoInfo
+        };
+
+      case 'process_video':
+        const processingResult = await this.mediaProcessor.processVideo(
+          action.payload.url,
+          action.payload.quality,
+          action.payload.format
+        );
+        return {
+          data: {
+            audioFile: processingResult.audioFile,
+            videoInfo: processingResult.videoInfo,
+            duration: processingResult.duration
+          }
+        };
+
+      case 'transcribe_audio':
+        const audioFile = this.getAudioFileFromState(state);
+        const transcriptionResult = await this.mediaProcessor.transcribeAudio(audioFile, {
+          language: action.payload.language,
+          includeTimestamps: action.payload.includeTimestamps || false
+        });
+        return {
+          data: {
+            transcription: transcriptionResult.text,
+            segments: transcriptionResult.segments,
+            language: transcriptionResult.language,
+            duration: transcriptionResult.duration
+          }
+        };
+
+      case 'enhance_text':
+        const text = this.getTranscriptionFromState(state);
+        const enhancementResult = await this.mediaProcessor.enhanceText(text, action.payload.enhancementOptions);
+        return {
+          data: {
+            enhancedText: enhancementResult.enhancedText,
+            summary: enhancementResult.summary,
+            keywords: enhancementResult.keywords,
+            improvements: enhancementResult.improvements
+          }
+        };
+
+      case 'analyze_requirements':
+        return {
+          analysis: `Analyzed goal: ${state.goal}`,
+          requirements: this.extractRequirements(state.goal),
+          context: state.context
+        };
+
+      default:
+        return { message: 'Action completed', type: action.type };
+    }
+  }
+
+  private getAudioFileFromState(state: ReActState): string {
+    const processVideoAction = state.actionHistory.find(a => a.action.type === 'process_video' && a.status === 'completed');
+    return processVideoAction?.result?.data?.audioFile || '';
+  }
+
+  private getTranscriptionFromState(state: ReActState): string {
+    const transcribeAction = state.actionHistory.find(a => a.action.type === 'transcribe_audio' && a.status === 'completed');
+    return transcribeAction?.result?.data?.transcription || '';
   }
 
   private async executeInternalAction(action: PlannedAction, state: ReActState): Promise<any> {
