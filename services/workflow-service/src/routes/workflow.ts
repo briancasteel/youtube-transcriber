@@ -33,7 +33,7 @@ router.get('/execution/:executionId', asyncHandler(async (req: Request, res: Res
   });
 
   try {
-    const execution = await reactEngine.getExecution(executionId);
+    const execution = await reactEngine.getWorkflowStatus(executionId);
 
     if (!execution) {
       return res.status(404).json({
@@ -87,7 +87,7 @@ router.post('/execution/:executionId/cancel', asyncHandler(async (req: Request, 
   });
 
   try {
-    const cancelled = await reactEngine.cancelExecution(executionId);
+    const cancelled = await reactEngine.cancelWorkflow(executionId);
 
     if (!cancelled) {
       return res.status(400).json({
@@ -378,9 +378,9 @@ router.get('/react/:executionId/reasoning', asyncHandler(async (req: Request, re
   });
 
   try {
-    const state = await reactEngine.getState(executionId);
+    const execution = await reactEngine.getWorkflowStatus(executionId);
 
-    if (!state) {
+    if (!execution) {
       return res.status(404).json({
         success: false,
         error: 'ReAct workflow execution not found',
@@ -389,21 +389,22 @@ router.get('/react/:executionId/reasoning', asyncHandler(async (req: Request, re
       });
     }
 
+    // For now, return basic execution info since we don't have direct access to reasoning trace
     return res.status(200).json({
       success: true,
       data: {
-        executionId: state.executionId,
-        goal: state.goal,
-        status: state.status,
-        currentThought: state.currentThought,
-        reasoningTrace: state.reasoningTrace,
-        actionHistory: state.actionHistory,
-        observations: state.observations,
+        executionId: execution.id,
+        workflowId: execution.workflowId,
+        status: execution.status,
+        currentStep: execution.currentStep,
+        completedSteps: execution.completedSteps,
+        failedSteps: execution.failedSteps,
+        stepResults: execution.stepResults,
         progress: {
-          reasoningSteps: state.reasoningTrace.length,
-          actionsExecuted: state.actionHistory.length,
-          successfulActions: state.actionHistory.filter(a => a.status === 'completed').length,
-          failedActions: state.actionHistory.filter(a => a.status === 'failed').length
+          reasoningSteps: 0, // Not directly available
+          actionsExecuted: execution.completedSteps.length + execution.failedSteps.length,
+          successfulActions: execution.completedSteps.length,
+          failedActions: execution.failedSteps.length
         }
       },
       timestamp: new Date().toISOString(),
