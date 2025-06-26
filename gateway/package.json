@@ -1,23 +1,30 @@
 {
-  "name": "@youtube-transcriber/express-gateway",
+  "name": "@youtube-transcriber/api-gateway",
   "version": "1.0.0",
-  "description": "Express Gateway configuration for YouTube Transcriber",
-  "main": "index.js",
+  "description": "Simple Express-based API Gateway for YouTube Transcriber",
+  "main": "src/server.js",
   "scripts": {
-    "start": "eg start",
-    "dev": "eg start --watch",
-    "stop": "eg stop"
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js"
   },
   "dependencies": {
-    "express-gateway": "^1.16.11"
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "cors": "^2.8.5",
+    "helmet": "^7.1.0",
+    "http-proxy-middleware": "^2.0.6",
+    "compression": "^1.7.4",
+    "morgan": "^1.10.0"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
   "engines": {
     "node": ">=18.0.0"
   },
   "keywords": [
-    "express-gateway",
     "api-gateway",
+    "express",
     "microservices",
     "youtube-transcriber"
   ],

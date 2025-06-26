@@ -1,36 +1,35 @@
-# Express Gateway Configuration
+# Simple Express-based API Gateway
 
-This directory contains the Express Gateway configuration that replaces the custom API Gateway service.
+This directory contains a simple Express-based API Gateway that replaces the custom API Gateway service.
 
 ## Overview
 
-Express Gateway is an industry-standard API gateway built on Express.js that provides:
+This is a lightweight API gateway built with Express.js and http-proxy-middleware that provides:
 
 - Request routing and proxying
 - Rate limiting
 - CORS handling
-- Security headers
+- Security headers (Helmet)
 - Request/response logging
-- Load balancing capabilities
+- Request ID tracking
+- Error handling
 
-## Configuration Files
+## Implementation Files
 
-### `config/gateway.config.yml`
-Main gateway configuration defining:
-- API endpoints and their paths
-- Service endpoints (backend services)
-- Policies and pipelines
-- Request routing rules
+### `src/server.js`
+Main gateway server implementing:
+- Express.js application setup
+- Middleware configuration (CORS, Helmet, compression, etc.)
+- Rate limiting for different endpoint types
+- Proxy configuration to workflow service
+- Health check endpoints
+- Error handling and graceful shutdown
 
-### `config/system.config.yml`
-System-level configuration for:
-- Database settings
-- Logging configuration
-- Default policy settings
-- Security configurations
+### `package.json`
+Dependencies and scripts for the gateway service
 
-### `config/models/`
-Data model definitions for users and applications (if authentication is needed in the future).
+### `Dockerfile`
+Container configuration for deployment
 
 ## API Endpoints
 
