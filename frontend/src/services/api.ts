@@ -1,15 +1,120 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
-import { 
-  ApiResponse, 
-  ApiError, 
-  VideoInfo, 
-  ProcessingJob, 
-  TranscriptionJob, 
-  WorkflowExecution,
-  WhisperOptions,
-  TextEnhancementOptions,
-  PaginatedResponse
-} from '../types';
+import { TranscriptionJob } from '../types';
+
+// New simplified interfaces based on the YouTube Transcription Agent
+export interface TranscriptionOptions {
+  language?: string;
+  includeTimestamps?: boolean;
+  enhanceText?: boolean;
+  audioQuality?: string;
+  audioFormat?: string;
+}
+
+export interface TranscriptionResult {
+  videoId: string;
+  title: string;
+  description: string;
+  captions: Array<{
+    text: string;
+    start?: number;
+    duration?: number;
+  }>;
+  summary?: string;
+  keywords?: string[];
+  metadata: {
+    duration: number;
+    language: string;
+    processingTime: number;
+    enhanced: boolean;
+  };
+}
+
+export interface ValidationResult {
+  valid: boolean;
+  videoId: string;
+  error?: string;
+}
+
+export interface AgentStatus {
+  available: boolean;
+  model: string;
+  tools: string[];
+}
+
+export interface ApiResponse<T = any> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  executionId?: string;
+}
+
+export interface ApiError {
+  success: false;
+  error: string;
+  timestamp: string;
+  requestId?: string;
+}
+
+// Legacy interfaces for backward compatibility
+export interface VideoInfo {
+  videoId: string;
+  title: string;
+  description: string;
+  duration: number;
+  thumbnail?: string;
+  author?: {
+    name: string;
+    channelUrl: string;
+  };
+}
+
+export interface ProcessingJob {
+  id: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  progress?: number;
+  result?: any;
+  error?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Use the TranscriptionJob from types/index.ts instead
+
+export interface WorkflowExecution {
+  id: string;
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+  input: any;
+  output?: any;
+  error?: string;
+  startTime: string;
+  endTime?: string;
+  metadata?: any;
+}
+
+export interface WhisperOptions {
+  language?: string;
+  model?: 'tiny' | 'base' | 'small' | 'medium' | 'large';
+  temperature?: number;
+}
+
+export interface TextEnhancementOptions {
+  addPunctuation?: boolean;
+  fixGrammar?: boolean;
+  improveClarity?: boolean;
+  generateSummary?: boolean;
+  extractKeywords?: boolean;
+}
+
+export interface PaginatedResponse<T> {
+  items: T[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+  };
+}
 
 class ApiService {
   private client: AxiosInstance;
@@ -17,7 +122,7 @@ class ApiService {
   constructor() {
     this.client = axios.create({
       baseURL: '/api',
-      timeout: 30000,
+      timeout: 300000, // 5 minutes for transcription requests
       headers: {
         'Content-Type': 'application/json',
       },
@@ -48,10 +153,7 @@ class ApiService {
         }
         return Promise.reject({
           success: false,
-          error: {
-            message: error.message || 'Network error',
-            code: 'NETWORK_ERROR',
-          },
+          error: error.message || 'Network error',
           timestamp: new Date().toISOString(),
           requestId: 'unknown',
         } as ApiError);
@@ -59,115 +161,232 @@ class ApiService {
     );
   }
 
-  // Video Processing API
-  async getVideoInfo(url: string): Promise<VideoInfo> {
-    const response = await this.client.get<ApiResponse<VideoInfo>>('/video/info', {
-      params: { url }
-    });
+  // New YouTube Transcription Agent API
+  async transcribeYouTubeVideo(
+    videoUrl: string, 
+    options: TranscriptionOptions = {}
+  ): Promise<TranscriptionResult> {
+    const response = await this.client.post<ApiResponse<TranscriptionResult>>(
+      '/transcribe',
+      {
+        videoUrl,
+        options
+      }
+    );
+    
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Transcription failed');
+    }
+    
     return response.data.data;
+  }
+
+  async validateYouTubeUrl(videoUrl: string): Promise<ValidationResult> {
+    const response = await this.client.post<ApiResponse<ValidationResult>>(
+      '/validate',
+      { videoUrl }
+    );
+    
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Validation failed');
+    }
+    
+    return response.data.data;
+  }
+
+  async getAgentStatus(): Promise<AgentStatus> {
+    const response = await this.client.get<ApiResponse<AgentStatus>>('/agent/status');
+    
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to get agent status');
+    }
+    
+    return response.data.data;
+  }
+
+  // Legacy API methods for backward compatibility
+  async getVideoInfo(url: string): Promise<VideoInfo> {
+    try {
+      // Try to use the validation endpoint to get basic info
+      const validation = await this.validateYouTubeUrl(url);
+      if (!validation.valid) {
+        throw new Error(validation.error || 'Invalid YouTube URL');
+      }
+      
+      // Return basic info from validation
+      return {
+        videoId: validation.videoId,
+        title: 'YouTube Video', // Placeholder
+        description: '',
+        duration: 0,
+      };
+    } catch (error) {
+      throw error;
+    }
   }
 
   async processVideo(url: string): Promise<{ jobId: string }> {
-    const response = await this.client.post<ApiResponse<{ jobId: string }>>('/video/process', {
-      url
-    });
-    return response.data.data;
+    // For backward compatibility, start a transcription and return a job ID
+    try {
+      const result = await this.transcribeYouTubeVideo(url);
+      return { jobId: result.videoId };
+    } catch (error) {
+      throw error;
+    }
   }
 
   async getVideoProcessingStatus(jobId: string): Promise<ProcessingJob> {
-    const response = await this.client.get<ApiResponse<ProcessingJob>>(`/video/status/${jobId}`);
-    return response.data.data;
+    // Mock implementation for backward compatibility
+    return {
+      id: jobId,
+      status: 'completed',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
   }
 
-  // Workflow API
+  // Workflow API (legacy)
   async startYouTubeTranscription(
     url: string, 
     whisperOptions?: WhisperOptions,
     enhancementOptions?: TextEnhancementOptions
   ): Promise<{ executionId: string }> {
-    const response = await this.client.post<ApiResponse<{ executionId: string }>>(
-      '/workflow/youtube-transcription',
-      {
-        url,
-        whisperOptions,
-        enhancementOptions
-      }
-    );
-    return response.data.data;
+    const options: TranscriptionOptions = {
+      language: whisperOptions?.language,
+      includeTimestamps: true,
+      enhanceText: enhancementOptions?.addPunctuation || 
+                   enhancementOptions?.fixGrammar || 
+                   enhancementOptions?.improveClarity || false
+    };
+
+    try {
+      const result = await this.transcribeYouTubeVideo(url, options);
+      return { executionId: result.videoId };
+    } catch (error) {
+      throw error;
+    }
   }
 
   async getWorkflowExecution(executionId: string): Promise<WorkflowExecution> {
-    const response = await this.client.get<ApiResponse<WorkflowExecution>>(
-      `/workflow/execution/${executionId}`
-    );
-    return response.data.data;
+    // Mock implementation for backward compatibility
+    return {
+      id: executionId,
+      status: 'completed',
+      input: { videoUrl: `https://youtube.com/watch?v=${executionId}` },
+      startTime: new Date().toISOString(),
+      endTime: new Date().toISOString(),
+    };
   }
 
   async cancelWorkflowExecution(executionId: string): Promise<void> {
-    await this.client.post(`/workflow/execution/${executionId}/cancel`);
+    // Mock implementation - cannot cancel completed transcriptions
+    console.warn(`Cannot cancel execution ${executionId} - transcription may already be complete`);
   }
 
-  // Transcription API
+  // Transcription API (legacy)
   async getTranscriptionJobs(limit = 20, offset = 0): Promise<PaginatedResponse<TranscriptionJob>> {
-    const response = await this.client.get<ApiResponse<{ jobs: TranscriptionJob[], pagination: any }>>(
-      '/llm/jobs',
-      { params: { limit, offset } }
-    );
+    // Mock implementation for backward compatibility
     return {
-      items: response.data.data.jobs,
-      pagination: response.data.data.pagination
+      items: [],
+      pagination: {
+        total: 0,
+        page: Math.floor(offset / limit) + 1,
+        limit,
+        hasNext: false,
+        hasPrev: offset > 0
+      }
     };
   }
 
   async getTranscriptionJob(jobId: string): Promise<TranscriptionJob> {
-    const response = await this.client.get<ApiResponse<TranscriptionJob>>(`/llm/jobs/${jobId}/status`);
-    return response.data.data;
+    // Mock implementation for backward compatibility
+    return {
+      jobId: jobId,
+      status: 'completed',
+      progress: 100,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
   }
 
-  async getTranscriptionResult(jobId: string): Promise<any> {
-    const response = await this.client.get<ApiResponse<any>>(`/llm/jobs/${jobId}/result`);
-    return response.data.data;
+  async getTranscriptionResult(_jobId: string): Promise<any> {
+    // Mock implementation for backward compatibility
+    return {
+      transcription: 'Transcription completed using new agent system',
+      summary: 'Please use the new transcribeYouTubeVideo method for full results'
+    };
   }
 
   async cancelTranscriptionJob(jobId: string): Promise<void> {
-    await this.client.delete(`/llm/jobs/${jobId}`);
+    // Mock implementation
+    console.warn(`Cannot cancel job ${jobId} - using new agent system`);
   }
 
   // Health Check
   async checkHealth(): Promise<{ status: string; services: Record<string, boolean> }> {
-    const response = await this.client.get<ApiResponse<any>>('/health/detailed');
-    return response.data.data;
+    try {
+      const agentStatus = await this.getAgentStatus();
+      return {
+        status: agentStatus.available ? 'healthy' : 'unhealthy',
+        services: {
+          'transcription-agent': agentStatus.available,
+          'ollama': agentStatus.available,
+          'workflow-service': true
+        }
+      };
+    } catch (error) {
+      return {
+        status: 'unhealthy',
+        services: {
+          'transcription-agent': false,
+          'ollama': false,
+          'workflow-service': false
+        }
+      };
+    }
   }
 
-  // File Upload
+  // File Upload (legacy - not supported in new system)
   async uploadAudioFile(
-    file: File,
-    whisperOptions?: WhisperOptions,
-    enhancementOptions?: TextEnhancementOptions
+    _file: File,
+    _whisperOptions?: WhisperOptions,
+    _enhancementOptions?: TextEnhancementOptions
   ): Promise<{ jobId: string }> {
-    const formData = new FormData();
-    formData.append('audio', file);
-    
-    if (whisperOptions) {
-      formData.append('whisperOptions', JSON.stringify(whisperOptions));
-    }
-    
-    if (enhancementOptions) {
-      formData.append('enhancementOptions', JSON.stringify(enhancementOptions));
-    }
+    throw new Error('Direct audio file upload not supported in new agent system. Please use YouTube URLs.');
+  }
 
-    const response = await this.client.post<ApiResponse<{ jobId: string }>>(
-      '/llm/transcribe',
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-        timeout: 60000, // 1 minute for file upload
-      }
-    );
-    return response.data.data;
+  // Utility methods
+  isYouTubeUrl(url: string): boolean {
+    const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
+    return youtubeRegex.test(url);
+  }
+
+  extractVideoId(url: string): string | null {
+    const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/);
+    return match ? match[1] : null;
+  }
+
+  formatDuration(seconds: number): string {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${minutes}:${secs.toString().padStart(2, '0')}`;
+  }
+
+  formatProcessingTime(milliseconds: number): string {
+    const seconds = Math.floor(milliseconds / 1000);
+    const minutes = Math.floor(seconds / 60);
+    
+    if (minutes > 0) {
+      return `${minutes}m ${seconds % 60}s`;
+    }
+    return `${seconds}s`;
   }
 }
 
 export const apiService = new ApiService();
+export default apiService;

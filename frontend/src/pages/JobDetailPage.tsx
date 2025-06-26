@@ -16,8 +16,8 @@ import {
   Zap,
   AlertCircle
 } from 'lucide-react';
-import { apiService } from '../services/api';
-import { TranscriptionJob, TranscriptionResult } from '../types';
+import { apiService, TranscriptionResult } from '../services/api';
+import { TranscriptionJob } from '../types';
 import { formatRelativeTime, formatDuration, downloadFile, copyToClipboard } from '../utils';
 
 export function JobDetailPage() {
@@ -319,21 +319,21 @@ export function JobDetailPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="text-center p-4 bg-gray-50 rounded-lg">
                 <div className="text-2xl font-bold text-blue-600">
-                  {formatDuration(result.processingTime.whisperDuration / 1000)}
+                  {result.metadata ? formatDuration(result.metadata.processingTime / 1000) : 'N/A'}
                 </div>
-                <div className="text-sm text-gray-600">Whisper Processing</div>
+                <div className="text-sm text-gray-600">Processing Time</div>
               </div>
               <div className="text-center p-4 bg-gray-50 rounded-lg">
                 <div className="text-2xl font-bold text-green-600">
-                  {formatDuration(result.processingTime.enhancementDuration / 1000)}
+                  {result.metadata?.language || 'Unknown'}
                 </div>
-                <div className="text-sm text-gray-600">Enhancement</div>
+                <div className="text-sm text-gray-600">Language</div>
               </div>
               <div className="text-center p-4 bg-gray-50 rounded-lg">
                 <div className="text-2xl font-bold text-purple-600">
-                  {formatDuration(result.processingTime.totalDuration / 1000)}
+                  {result.metadata?.enhanced ? 'Yes' : 'No'}
                 </div>
-                <div className="text-sm text-gray-600">Total Time</div>
+                <div className="text-sm text-gray-600">Enhanced</div>
               </div>
             </div>
           </div>
@@ -347,7 +347,7 @@ export function JobDetailPage() {
               </h3>
               <div className="flex items-center space-x-2">
                 <button
-                  onClick={() => handleCopyText(result.enhancement?.enhancedText || result.transcription.text)}
+                  onClick={() => handleCopyText(result.captions.map(c => c.text).join(' '))}
                   className="btn-secondary inline-flex items-center space-x-2"
                 >
                   <Copy className="w-4 h-4" />
@@ -355,7 +355,7 @@ export function JobDetailPage() {
                 </button>
                 <button
                   onClick={() => handleDownload(
-                    result.enhancement?.enhancedText || result.transcription.text,
+                    result.captions.map(c => c.text).join(' '),
                     `transcription-${job.jobId.slice(0, 8)}.txt`,
                     'txt'
                   )}
@@ -369,90 +369,61 @@ export function JobDetailPage() {
             
             <div className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
               <pre className="whitespace-pre-wrap text-sm text-gray-900 font-mono">
-                {result.enhancement?.enhancedText || result.transcription.text}
+                {result.captions.map(c => c.text).join(' ')}
               </pre>
             </div>
             
-            {result.transcription.language && (
+            {result.metadata?.language && (
               <div className="mt-2 text-sm text-gray-600">
-                Detected language: {result.transcription.language}
+                Detected language: {result.metadata.language}
               </div>
             )}
           </div>
 
-          {/* Enhancement Results */}
-          {result.enhancement && (
-            <div className="space-y-6">
-              {/* Summary */}
-              {result.enhancement.summary && (
-                <div className="card">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-medium text-gray-900">Summary</h3>
-                    <button
-                      onClick={() => handleCopyText(result.enhancement!.summary!)}
-                      className="btn-secondary inline-flex items-center space-x-2"
-                    >
-                      <Copy className="w-4 h-4" />
-                      <span>Copy</span>
-                    </button>
-                  </div>
-                  <div className="bg-blue-50 rounded-lg p-4">
-                    <p className="text-gray-900">{result.enhancement.summary}</p>
-                  </div>
-                </div>
-              )}
+          {/* Summary */}
+          {result.summary && (
+            <div className="card">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900">Summary</h3>
+                <button
+                  onClick={() => handleCopyText(result.summary!)}
+                  className="btn-secondary inline-flex items-center space-x-2"
+                >
+                  <Copy className="w-4 h-4" />
+                  <span>Copy</span>
+                </button>
+              </div>
+              <div className="bg-blue-50 rounded-lg p-4">
+                <p className="text-gray-900">{result.summary}</p>
+              </div>
+            </div>
+          )}
 
-              {/* Keywords */}
-              {result.enhancement.keywords && result.enhancement.keywords.length > 0 && (
-                <div className="card">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Keywords</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {result.enhancement.keywords.map((keyword, index) => (
-                      <span
-                        key={index}
-                        className="px-3 py-1 bg-primary-100 text-primary-800 rounded-full text-sm"
-                      >
-                        {keyword}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
+          {/* Keywords */}
+          {result.keywords && result.keywords.length > 0 && (
+            <div className="card">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Keywords</h3>
+              <div className="flex flex-wrap gap-2">
+                {result.keywords.map((keyword: string, index: number) => (
+                  <span
+                    key={index}
+                    className="px-3 py-1 bg-primary-100 text-primary-800 rounded-full text-sm"
+                  >
+                    {keyword}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
-              {/* Improvements */}
-              <div className="card">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Applied Improvements</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className={`p-3 rounded-lg ${result.enhancement.improvements.punctuationAdded ? 'bg-green-50 text-green-800' : 'bg-gray-50 text-gray-600'}`}>
-                    <div className="flex items-center space-x-2">
-                      {result.enhancement.improvements.punctuationAdded ? (
-                        <CheckCircle className="w-4 h-4" />
-                      ) : (
-                        <XCircle className="w-4 h-4" />
-                      )}
-                      <span className="text-sm font-medium">Punctuation Added</span>
-                    </div>
-                  </div>
-                  <div className={`p-3 rounded-lg ${result.enhancement.improvements.grammarFixed ? 'bg-green-50 text-green-800' : 'bg-gray-50 text-gray-600'}`}>
-                    <div className="flex items-center space-x-2">
-                      {result.enhancement.improvements.grammarFixed ? (
-                        <CheckCircle className="w-4 h-4" />
-                      ) : (
-                        <XCircle className="w-4 h-4" />
-                      )}
-                      <span className="text-sm font-medium">Grammar Fixed</span>
-                    </div>
-                  </div>
-                  <div className={`p-3 rounded-lg ${result.enhancement.improvements.clarityImproved ? 'bg-green-50 text-green-800' : 'bg-gray-50 text-gray-600'}`}>
-                    <div className="flex items-center space-x-2">
-                      {result.enhancement.improvements.clarityImproved ? (
-                        <CheckCircle className="w-4 h-4" />
-                      ) : (
-                        <XCircle className="w-4 h-4" />
-                      )}
-                      <span className="text-sm font-medium">Clarity Improved</span>
-                    </div>
-                  </div>
+          {/* Enhancement Status */}
+          {result.metadata?.enhanced && (
+            <div className="card">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Enhancement Applied</h3>
+              <div className="p-3 rounded-lg bg-green-50 text-green-800">
+                <div className="flex items-center space-x-2">
+                  <CheckCircle className="w-4 h-4" />
+                  <span className="text-sm font-medium">Text has been enhanced with AI improvements</span>
                 </div>
               </div>
             </div>

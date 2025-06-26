@@ -5,6 +5,7 @@ const compression = require('compression');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const { createProxyMiddleware } = require('http-proxy-middleware');
+const axios = require('axios');
 
 const app = express();
 const port = process.env.PORT || 8080;
@@ -70,26 +71,46 @@ app.use((req, res, next) => {
 const proxyOptions = {
   target: WORKFLOW_SERVICE_URL,
   changeOrigin: true,
-  timeout: 30000,
-  proxyTimeout: 30000,
+  timeout: 120000, // 2 minutes for workflow requests
+  proxyTimeout: 120000, // 2 minutes for workflow requests
   onProxyReq: (proxyReq, req, res) => {
     proxyReq.setHeader('X-Request-ID', req.requestId);
     console.log(`Proxying ${req.method} ${req.url} to ${WORKFLOW_SERVICE_URL}${req.url}`);
   },
+  onProxyRes: (proxyRes, req, res) => {
+    console.log(`Proxy response: ${proxyRes.statusCode} for ${req.method} ${req.url}`);
+  },
   onError: (err, req, res) => {
     console.error(`Proxy error for ${req.method} ${req.url}:`, err.message);
-    res.status(502).json({
-      success: false,
-      error: 'Bad Gateway - Service unavailable',
-      code: 'PROXY_ERROR',
-      timestamp: new Date().toISOString(),
-      requestId: req.requestId
-    });
+    if (!res.headersSent) {
+      res.status(502).json({
+        success: false,
+        error: 'Bad Gateway - Service unavailable',
+        code: 'PROXY_ERROR',
+        timestamp: new Date().toISOString(),
+        requestId: req.requestId
+      });
+    }
   }
 };
 
 // Health check endpoint (direct response)
 app.get('/health', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      service: 'YouTube Transcriber API Gateway',
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      version: '1.0.0'
+    },
+    timestamp: new Date().toISOString(),
+    requestId: req.requestId
+  });
+});
+
+// API Health check endpoint (direct response)
+app.get('/api/health', (req, res) => {
   res.json({
     success: true,
     data: {
@@ -112,23 +133,19 @@ app.get('/', (req, res) => {
     timestamp: new Date().toISOString(),
     endpoints: {
       health: '/health',
-      transcription: '/api/transcribe',
-      videoInfo: '/api/video-info',
-      videoProcessing: '/api/video/process',
-      videoStatus: '/api/video/status/{jobId}',
-      videoInfoDirect: '/api/video/info',
-      workflow: '/api/workflow/youtube-transcription',
-      workflowStatus: '/api/workflow/execution/{id}',
-      workflowCancel: '/api/workflow/execution/{id}/cancel',
+      transcribe: '/api/transcribe',
+      validate: '/api/validate',
+      agentStatus: '/api/agent/status'
     }
   });
 });
 
+
 // API routes with rate limiting and proxying
+// Note: Order matters - more specific routes must come first
 app.use('/api/transcribe*', transcriptionLimiter, createProxyMiddleware(proxyOptions));
-app.use('/api/workflow*', workflowLimiter, createProxyMiddleware(proxyOptions));
-app.use('/api/video*', videoLimiter, createProxyMiddleware(proxyOptions));
-app.use('/api/video-info*', videoLimiter, createProxyMiddleware(proxyOptions));
+app.use('/api/validate*', transcriptionLimiter, createProxyMiddleware(proxyOptions));
+app.use('/api/agent*', createProxyMiddleware(proxyOptions));
 
 // Catch-all for other API routes
 app.use('/api/*', createProxyMiddleware(proxyOptions));

@@ -12,6 +12,7 @@
 **/build/
 **/lib/
 **/out/
+**/node_modules
 
 # Runtime data
 *.pid

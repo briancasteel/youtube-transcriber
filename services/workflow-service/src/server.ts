@@ -8,7 +8,7 @@ import dotenv from 'dotenv';
 import { requestLogger } from './middleware/requestLogger';
 import { errorHandler } from './middleware/errorHandler';
 import healthRoutes from './routes/health';
-import workflowRoutes from './routes/workflow';
+import transcriptionRoutes from './routes/transcription';
 import logger from './utils/logger';
 
 // Load environment variables
@@ -64,7 +64,7 @@ app.use(requestLogger);
 app.use('/', healthRoutes);
 
 // API routes
-app.use('/api/workflow', workflowRoutes);
+app.use('/api', transcriptionRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -79,10 +79,9 @@ app.get('/', (req, res) => {
       endpoints: {
         health: '/health',
         healthDetailed: '/health/detailed',
-        executeWorkflow: 'POST /api/workflow/execute',
-        getExecution: 'GET /api/workflow/execution/:executionId',
-        cancelExecution: 'POST /api/workflow/execution/:executionId/cancel',
-        youtubeTranscription: 'POST /api/workflow/youtube-transcription'
+        transcribe: 'POST /api/transcribe',
+        validate: 'POST /api/validate',
+        agentStatus: 'GET /api/agent/status'
       },
       documentation: 'https://github.com/your-org/youtube-transcriber/blob/main/services/workflow-service/README.md'
     },
