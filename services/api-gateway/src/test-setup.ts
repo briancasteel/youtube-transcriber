@@ -11,20 +11,6 @@ process.env.LLM_SERVICE_URL = 'http://test-llm:8005';
 // Mock axios globally
 jest.mock('axios');
 
-// Mock Redis client
-jest.mock('redis', () => ({
-  createClient: jest.fn(() => ({
-    connect: jest.fn(),
-    disconnect: jest.fn(),
-    get: jest.fn(),
-    set: jest.fn(),
-    setEx: jest.fn(),
-    del: jest.fn(),
-    exists: jest.fn(),
-    expire: jest.fn(),
-  })),
-}));
-
 // Suppress console logs during tests unless explicitly needed
 const originalConsole = console;
 beforeAll(() => {

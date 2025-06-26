@@ -49,20 +49,20 @@ router.get('/health/detailed', asyncHandler(async (req: Request, res: Response) 
       cpuCount: require('os').cpus().length
     },
     dependencies: {
-      redis: 'checking',
       videoProcessor: 'checking',
       transcriptionService: 'checking',
-      llmService: 'checking'
+      llmService: 'checking',
+      ollama: 'checking'
     }
   };
 
   // TODO: Add actual dependency health checks
   // For now, we'll mark them as healthy
   healthData.dependencies = {
-    redis: 'healthy',
     videoProcessor: 'healthy', 
     transcriptionService: 'healthy',
-    llmService: 'healthy'
+    llmService: 'healthy',
+    ollama: 'healthy'
   };
 
   res.status(200).json({

@@ -3,30 +3,9 @@ import { jest } from '@jest/globals';
 // Mock environment variables
 process.env.NODE_ENV = 'test';
 process.env.PORT = '8001';
-process.env.REDIS_URL = 'redis://localhost:6379';
 
 // Mock axios globally
 jest.mock('axios');
-
-// Mock Redis client
-jest.mock('redis', () => ({
-  createClient: jest.fn(() => ({
-    connect: jest.fn(),
-    disconnect: jest.fn(),
-    get: jest.fn(),
-    set: jest.fn(),
-    setEx: jest.fn(),
-    del: jest.fn(),
-    exists: jest.fn(),
-    expire: jest.fn(),
-    hGet: jest.fn(),
-    hSet: jest.fn(),
-    hGetAll: jest.fn(),
-    lPush: jest.fn(),
-    lPop: jest.fn(),
-    lLen: jest.fn(),
-  })),
-}));
 
 // Mock winston logger
 jest.mock('winston', () => ({

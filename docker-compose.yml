@@ -19,22 +19,6 @@ services:
       retries: 3
       start_period: 30s
 
-  # Redis - Message queue and caching
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    command: redis-server --appendonly yes
-    volumes:
-      - redis-data:/data
-    networks:
-      - youtube-transcriber
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 3
-
   # API Gateway - Request routing and rate limiting
   api-gateway:
     build:
@@ -46,13 +30,11 @@ services:
       - NODE_ENV=development
       - PORT=8000
       - WORKFLOW_SERVICE_URL=http://workflow-service:8004
-      - REDIS_URL=redis://redis:6379
       - LOG_LEVEL=debug
     volumes:
       - ./services/api-gateway/src:/app/src
       - ./shared:/app/shared
     depends_on:
-      - redis
       - workflow-service
     networks:
       - youtube-transcriber
@@ -68,7 +50,6 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=8004
-      - REDIS_URL=redis://redis:6379
       - OLLAMA_URL=http://ollama:11434
       - OLLAMA_DEFAULT_MODEL=llama2:7b
       - LOG_LEVEL=debug
@@ -83,7 +64,6 @@ services:
       - workflow-output:/app/output
       - whisper-models:/app/models
     depends_on:
-      - redis
       - ollama
     networks:
       - youtube-transcriber
@@ -114,8 +94,6 @@ services:
 
 
 volumes:
-  redis-data:
-    driver: local
   ollama-data:
     driver: local
   whisper-models:
