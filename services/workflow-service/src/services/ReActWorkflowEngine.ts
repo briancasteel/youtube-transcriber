@@ -2,7 +2,8 @@ import { v4 as uuidv4 } from 'uuid';
 import axios, { AxiosInstance } from 'axios';
 import { StateGraph, END, START, Annotation } from '@langchain/langgraph';
 import { BaseMessage } from '@langchain/core/messages';
-import { MemorySaver } from '@langchain/langgraph';
+import fs from 'fs/promises';
+import path from 'path';
 import logger from '../utils/logger';
 import {
   WorkflowExecution,
@@ -10,6 +11,65 @@ import {
   ServiceEndpoint
 } from '../types/workflow';
 import { IntegratedMediaProcessor } from './IntegratedMediaProcessor';
+
+// Simple file-based checkpoint saver
+class FileCheckpointSaver {
+  private checkpointDir: string;
+
+  constructor(checkpointDir: string = process.env.CHECKPOINT_DIR || './checkpoints') {
+    this.checkpointDir = checkpointDir;
+    this.ensureCheckpointDir();
+  }
+
+  private async ensureCheckpointDir(): Promise<void> {
+    try {
+      await fs.mkdir(this.checkpointDir, { recursive: true });
+    } catch (error) {
+      logger.error('Failed to create checkpoint directory', {
+        dir: this.checkpointDir,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+
+  async saveCheckpoint(threadId: string, state: any): Promise<void> {
+    try {
+      const checkpointPath = path.join(this.checkpointDir, `${threadId}.json`);
+      const checkpoint = {
+        threadId,
+        state,
+        timestamp: new Date().toISOString()
+      };
+      await fs.writeFile(checkpointPath, JSON.stringify(checkpoint, null, 2));
+    } catch (error) {
+      logger.error('Failed to save checkpoint', {
+        threadId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+
+  async loadCheckpoint(threadId: string): Promise<any | null> {
+    try {
+      const checkpointPath = path.join(this.checkpointDir, `${threadId}.json`);
+      const checkpointData = await fs.readFile(checkpointPath, 'utf-8');
+      const checkpoint = JSON.parse(checkpointData);
+      return checkpoint.state;
+    } catch (error) {
+      // File doesn't exist or can't be read - return null
+      return null;
+    }
+  }
+
+  async deleteCheckpoint(threadId: string): Promise<void> {
+    try {
+      const checkpointPath = path.join(this.checkpointDir, `${threadId}.json`);
+      await fs.unlink(checkpointPath);
+    } catch (error) {
+      // File doesn't exist - ignore error
+    }
+  }
+}
 
 // State interfaces
 export interface ReasoningStep {
@@ -104,7 +164,7 @@ export class ReActWorkflowEngine {
   private serviceEndpoints: Map<string, ServiceEndpoint>;
   private isInitialized: boolean = false;
   private mediaProcessor: IntegratedMediaProcessor;
-  private memorySaver: MemorySaver;
+  private checkpointSaver: FileCheckpointSaver;
   private compiledGraph: any;
 
   constructor() {
@@ -118,7 +178,7 @@ export class ReActWorkflowEngine {
 
     this.serviceEndpoints = new Map();
     this.mediaProcessor = new IntegratedMediaProcessor();
-    this.memorySaver = new MemorySaver();
+    this.checkpointSaver = new FileCheckpointSaver();
     
     this.initializeServiceEndpoints();
     this.initializeLangGraph();
@@ -170,10 +230,9 @@ export class ReActWorkflowEngine {
       .addEdge('completed', END)
       .addEdge('failed', END);
 
-    // Compile the graph
-    this.compiledGraph = workflowGraph.compile({
-      checkpointer: this.memorySaver
-    });
+    // Compile the graph without checkpointer for now
+    // LangGraph checkpointer integration would require more complex setup
+    this.compiledGraph = workflowGraph.compile();
   }
 
   async initialize(): Promise<void> {
