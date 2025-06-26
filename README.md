@@ -15,25 +15,19 @@ This application transcribes YouTube videos to text using a modern microservice 
 ## 🏗️ Architecture
 
 ```
-Frontend (React) → API Gateway → Workflow Service (LangGraph)
-                                      ↓
-                    Video Processor ← → Transcription Service
-                                      ↓
-                    File Storage ← → LLM Service (Whisper + Ollama)
-                                      ↓
-                                   Redis Queue
+Frontend (React) → Express Gateway → Workflow Service (ReAct Engine)
+                                           ↓
+                                    Integrated Media Processor
+                                           ↓
+                                    Whisper + Ollama (Local AI)
 ```
 
 ### Services
 
 - **Frontend Service** (Port 3000): React web application
-- **API Gateway** (Port 8000): Request routing, rate limiting, authentication
-- **Workflow Service** (Port 8001): LangGraph orchestration engine
-- **Video Processor** (Port 8002): YouTube video processing with ytdl-core
-- **Transcription Service** (Port 8003): Transcription coordination
-- **LLM Service** (Port 8005): Local Whisper + Ollama processing
-- **File Storage Service** (Port 8004): Temporary file management
-- **Redis** (Port 6379): Message queue and caching
+- **Express Gateway** (Port 8000): Industry-standard API gateway with routing, rate limiting, CORS
+- **Workflow Service** (Port 8004): Integrated ReAct workflow engine with media processing
+- **Ollama** (Port 11434): Local LLM server for text enhancement and AI processing
 
 ## 🚀 Quick Start
 
@@ -73,7 +67,7 @@ This will verify:
 
 #### Step 3: Start the Services
 ```bash
-# Start the current services (Redis + API Gateway)
+# Start all services
 docker compose up --build
 
 # Or run in background
@@ -81,18 +75,19 @@ docker compose up --build -d
 ```
 
 This will:
-- Start Redis message queue (port 6379)
-- Start API Gateway (port 8000)
+- Start Express Gateway (port 8000)
+- Start Workflow Service (port 8004)
+- Start Ollama LLM server (port 11434)
+- Start Frontend (port 3000)
 - Set up networking between services
 
 ### Access Points
 
 - **Frontend**: http://localhost:3000
-- **API Gateway**: http://localhost:8000
+- **Express Gateway**: http://localhost:8000
 - **Health Checks**: http://localhost:8000/health
-- **API Documentation**: http://localhost:8000/api
+- **Workflow Service**: http://localhost:8004 (internal)
 - **Ollama**: http://localhost:11434
-- **Redis**: localhost:6379
 
 ## 📊 API Endpoints
 
@@ -150,8 +145,8 @@ GET /health/detailed
 ### Individual Service Development
 
 ```bash
-# Start specific service in development mode
-cd services/api-gateway
+# Start workflow service in development mode
+cd services/workflow-service
 npm run dev
 
 # Run tests
@@ -163,30 +158,30 @@ npm run build
 
 ### Hot Reload Development
 
-Each service supports hot reload for rapid development:
+Services support hot reload for rapid development:
 
 ```bash
 # Frontend with Vite hot reload
-cd services/frontend-service
+cd frontend
 npm run dev
 
-# Backend services with nodemon
-cd services/api-gateway
+# Workflow service with nodemon
+cd services/workflow-service
 npm run dev
 ```
 
 ### Testing
 
 ```bash
-# Run all tests
+# Test workflow service
+cd services/workflow-service
 npm test
 
-# Run tests in watch mode
+# Run ReAct workflow tests
+npm run test:react
+
+# Test specific functionality
 npm run test:watch
-
-# Test specific service
-cd services/api-gateway
-npm test
 ```
 
 ### Debugging
@@ -196,28 +191,29 @@ npm test
 docker-compose logs -f
 
 # View specific service logs
+docker-compose logs -f api-gateway
 docker-compose logs -f workflow-service
-docker-compose logs -f llm-service
+docker-compose logs -f ollama
 
-# Access Redis for state inspection
-docker-compose exec redis redis-cli
+# Test Express Gateway configuration
+docker-compose logs -f api-gateway
 ```
 
 ## 📁 Project Structure
 
 ```
 youtube-transcriber/
+├── frontend/                     # React Web App
+├── gateway/                      # Express Gateway Configuration
+│   ├── config/                   # Gateway configuration files
+│   ├── Dockerfile               # Gateway container
+│   └── README.md                # Gateway documentation
 ├── services/
-│   ├── frontend-service/           # React Web App
-│   ├── api-gateway/               # Request Routing & Rate Limiting
-│   ├── workflow-service/          # LangGraph Orchestration
-│   ├── video-processor-service/   # YouTube Processing
-│   ├── transcription-service/     # Transcription Coordination
-│   ├── llm-service/              # Whisper + Ollama
-│   └── file-storage-service/     # File Management
-├── shared/                       # Common Types & Utils
-├── infrastructure/               # Deployment configs
-├── docker-compose.yml           # Local development
+│   └── workflow-service/        # Integrated ReAct Workflow Engine
+├── shared/                      # Common Types & Utils
+├── scripts/                     # Development & Testing Scripts
+├── memory-bank/                 # Architecture & Implementation Docs
+├── docker-compose.yml          # Local development
 └── README.md
 ```
 
@@ -228,24 +224,29 @@ youtube-transcriber/
 Each service can be configured via environment variables:
 
 ```bash
-# API Gateway
-PORT=8000
+# Express Gateway
 NODE_ENV=development
-WORKFLOW_SERVICE_URL=http://workflow-service:8001
-REDIS_URL=redis://redis:6379
-LOG_LEVEL=debug
+LOG_LEVEL=info
 
-# LLM Service
-OLLAMA_HOST=0.0.0.0
-OLLAMA_PORT=11434
-WHISPER_MODEL=base.en
+# Workflow Service
+NODE_ENV=development
+PORT=8004
+OLLAMA_URL=http://ollama:11434
+OLLAMA_DEFAULT_MODEL=llama2:7b
+LOG_LEVEL=debug
+DOWNLOAD_DIR=/app/downloads
+OUTPUT_DIR=/app/output
+WHISPER_MODELS_DIR=/app/models
+
+# Ollama
+OLLAMA_MODELS=llama2:7b
 ```
 
 ### Model Configuration
 
-The LLM service uses:
-- **Whisper Model**: `base.en` (142MB, good balance of speed/accuracy)
-- **Ollama Model**: `llama3.2:1b` (lightweight for text enhancement)
+The integrated workflow service uses:
+- **Whisper Model**: Local Whisper implementation for transcription
+- **Ollama Model**: `llama2:7b` (lightweight for text enhancement and ReAct reasoning)
 
 To use different models, update the environment variables in `docker-compose.yml`.
 
@@ -315,12 +316,19 @@ MIT License - see LICENSE file for details.
 
 **Services won't start**:
 - Check Docker Desktop memory allocation (needs 6GB+)
-- Ensure ports 3000, 8000-8005, 6379, 11434 are available
+- Ensure ports 3000, 8000, 8004, 11434 are available
+- Verify Express Gateway configuration is valid
 
 **Transcription fails**:
-- Check LLM service logs: `docker-compose logs llm-service`
+- Check workflow service logs: `docker-compose logs workflow-service`
+- Check Ollama service logs: `docker-compose logs ollama`
 - Verify Ollama models are downloaded
 - Ensure sufficient memory for model loading
+
+**Gateway issues**:
+- Check Express Gateway logs: `docker-compose logs api-gateway`
+- Verify gateway configuration files in `gateway/config/`
+- Test direct workflow service access: http://localhost:8004/health
 
 **Slow performance**:
 - Increase Docker memory allocation
@@ -330,7 +338,8 @@ MIT License - see LICENSE file for details.
 ### Getting Help
 
 - Check service logs: `docker-compose logs -f [service-name]`
-- View health status: http://localhost:8000/health/detailed
-- Monitor Redis state: `docker-compose exec redis redis-cli`
+- View health status: http://localhost:8000/health
+- Test Express Gateway: `curl http://localhost:8000/health`
+- Test workflow service: `curl http://localhost:8004/health`
 
 For additional support, please open an issue in the repository.

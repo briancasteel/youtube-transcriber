@@ -1,0 +1,18 @@
+{
+  "properties": {
+    "username": {
+      "isRequired": true,
+      "type": "string"
+    },
+    "firstname": {
+      "type": "string"
+    },
+    "lastname": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string",
+      "format": "email"
+    }
+  }
+}

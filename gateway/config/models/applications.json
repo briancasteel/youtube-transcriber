@@ -1,0 +1,12 @@
+{
+  "properties": {
+    "name": {
+      "isRequired": true,
+      "type": "string"
+    },
+    "redirectUri": {
+      "type": "string",
+      "format": "url"
+    }
+  }
+}

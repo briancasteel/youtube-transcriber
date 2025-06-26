@@ -1,0 +1,26 @@
+{
+  "name": "@youtube-transcriber/express-gateway",
+  "version": "1.0.0",
+  "description": "Express Gateway configuration for YouTube Transcriber",
+  "main": "index.js",
+  "scripts": {
+    "start": "eg start",
+    "dev": "eg start --watch",
+    "stop": "eg stop"
+  },
+  "dependencies": {
+    "express-gateway": "^1.16.11"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "express-gateway",
+    "api-gateway",
+    "microservices",
+    "youtube-transcriber"
+  ],
+  "author": "YouTube Transcriber Team",
+  "license": "MIT"
+}
