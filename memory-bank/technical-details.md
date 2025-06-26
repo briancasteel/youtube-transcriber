@@ -8,7 +8,7 @@
 - **Transcription Service**: Node.js + TypeScript + Redis integration (Production Ready)
 - **Workflow Service**: Node.js + TypeScript + orchestration engine (Production Ready)
 - **LLM Service**: Node.js + TypeScript + Whisper + Ollama (Production Ready)
-- **Message Queue**: Redis 7.4.4 with AOF persistence
+- **State Management**: LangGraph checkpoints with MemorySaver
 - **AI Infrastructure**: Ollama LLM server + Whisper integration
 - **Container Orchestration**: Docker Compose with custom networking
 - **Health Monitoring**: Automated 30-second interval checks across all services
@@ -191,17 +191,49 @@ interface TranscriptionJob {
 }
 ```
 
-### Workflow Service Implementation - ✅ PRODUCTION READY
+### Workflow Service Implementation - ✅ PRODUCTION READY + REDIS REMOVAL REFACTORING
 
-#### Core Workflow Engine
+#### 🚨 MAJOR REFACTORING COMPLETED - REDIS REMOVAL (June 25, 2025)
+- **Status**: ✅ SUCCESSFULLY COMPLETED
+- **Scope**: Complete removal of Redis dependency and migration to LangGraph checkpoints
+- **Impact**: Simplified architecture, enhanced state management, improved performance
+- **Benefits**: Reduced infrastructure complexity, better workflow state persistence, cleaner codebase
+
+#### Core Workflow Engine (Enhanced with LangGraph Checkpoints)
 ```typescript
 1. Workflow Definition Management (Type-safe workflow schemas)
 2. Step Execution Engine (Dependency resolution and parallel execution)
 3. Service Coordination (HTTP-based communication with all services)
-4. State Management (Redis-based workflow state persistence)
-5. Event Publishing (Redis pub/sub for workflow events)
+4. State Management (LangGraph MemorySaver checkpoints - ENHANCED)
+5. Event Publishing (Direct logging-based events - SIMPLIFIED)
 6. Error Recovery (Comprehensive error handling and retry mechanisms)
 7. Progress Tracking (Real-time execution status updates)
+8. LangGraph Integration (Native checkpoint persistence - NEW)
+```
+
+#### LangGraph Checkpoint Implementation
+```typescript
+class ReActWorkflowEngine {
+  private memorySaver: MemorySaver;
+  private compiledGraph: any;
+  
+  constructor() {
+    this.memorySaver = new MemorySaver();
+    this.initializeLangGraph();
+  }
+  
+  private initializeLangGraph(): void {
+    this.compiledGraph = workflowGraph.compile({
+      checkpointer: this.memorySaver  // Native LangGraph checkpointing
+    });
+  }
+  
+  async getWorkflowStatus(executionId: string): Promise<WorkflowExecution | null> {
+    const config = { configurable: { thread_id: executionId } };
+    const state = await this.compiledGraph.getState(config);
+    return this.transformStateToExecution(state);
+  }
+}
 ```
 
 #### Workflow Service Endpoints
