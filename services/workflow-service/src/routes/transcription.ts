@@ -35,8 +35,24 @@ interface AgentStatusResponse {
   error?: string;
 }
 
-// Initialize the agent
-const transcriptionAgent = new YouTubeTranscriptionAgent();
+// Initialize the agent lazily to allow for testing
+let transcriptionAgent: YouTubeTranscriptionAgent | null = null;
+
+const getTranscriptionAgent = (): YouTubeTranscriptionAgent => {
+  if (!transcriptionAgent) {
+    transcriptionAgent = new YouTubeTranscriptionAgent();
+  }
+  return transcriptionAgent;
+};
+
+// Export for testing
+export const setTranscriptionAgent = (agent: YouTubeTranscriptionAgent): void => {
+  transcriptionAgent = agent;
+};
+
+export const resetTranscriptionAgent = (): void => {
+  transcriptionAgent = null;
+};
 
 /**
  * POST /api/transcribe
@@ -66,7 +82,7 @@ router.post('/transcribe', async (req: Request, res: Response<TranscribeResponse
     });
 
     // Process with AI agent
-    const result = await transcriptionAgent.transcribe(videoUrl, options as TranscriptionOptions);
+    const result = await getTranscriptionAgent().transcribe(videoUrl, options as TranscriptionOptions);
 
     const processingTime = Date.now() - startTime;
 
@@ -100,7 +116,7 @@ router.post('/transcribe', async (req: Request, res: Response<TranscribeResponse
       statusCode = 400;
     } else if (errorMessage.includes('not found') || errorMessage.includes('unavailable')) {
       statusCode = 404;
-    } else if (errorMessage.includes('timeout') || errorMessage.includes('rate limit')) {
+    } else if (errorMessage.includes('timeout') || errorMessage.includes('rate limit') || errorMessage.includes('Rate limit')) {
       statusCode = 429;
     }
 
@@ -117,7 +133,7 @@ router.post('/transcribe', async (req: Request, res: Response<TranscribeResponse
  */
 router.get('/agent/status', async (req: Request, res: Response<AgentStatusResponse>) => {
   try {
-    const status = await transcriptionAgent.getAgentStatus();
+    const status = await getTranscriptionAgent().getAgentStatus();
 
     res.json({
       success: true,
@@ -154,8 +170,8 @@ router.post('/validate', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Use the agent's validator tool directly
-    const agent = new YouTubeTranscriptionAgent();
+    // Use the injected agent's validator tool directly
+    const agent = getTranscriptionAgent();
     const validation = await (agent as any).tools[0].func({ videoUrl });
 
     res.json({
