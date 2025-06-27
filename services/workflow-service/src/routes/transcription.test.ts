@@ -5,9 +5,6 @@ import transcriptionRouter, { setTranscriptionAgent, resetTranscriptionAgent } f
 // Mock the entire module with a simpler approach
 jest.mock('../agents/YouTubeTranscriptionAgent');
 
-// Import the mocked class
-import { YouTubeTranscriptionAgent } from '../agents/YouTubeTranscriptionAgent';
-
 // Create test app
 const createTestApp = () => {
   const app = express();
@@ -351,7 +348,7 @@ describe('Transcription Routes', () => {
     });
 
     it('should handle malformed JSON', async () => {
-      const response = await request(app)
+      await request(app)
         .post('/transcribe')
         .set('Content-Type', 'application/json')
         .send('{"invalid": json}')

@@ -4,7 +4,7 @@
 
 ### Microservice Foundation - ✅ FULLY OPERATIONAL
 - **API Gateway**: Express.js + TypeScript (Production Ready)
-- **Video Processor**: Node.js + TypeScript + ytdl-core + FFmpeg (Production Ready)
+- **Video Processor**: Node.js + TypeScript + External Services (Production Ready)
 - **Transcription Service**: Node.js + TypeScript + Redis integration (Production Ready)
 - **Workflow Service**: Node.js + TypeScript + orchestration engine (Production Ready)
 - **LLM Service**: Node.js + TypeScript + Whisper + Ollama (Production Ready)
@@ -74,7 +74,7 @@ Proxy Routes:
 
 #### Core Processing Pipeline
 ```typescript
-1. YouTube URL Validation (ytdl-core integration)
+1. YouTube URL Validation (External service integration)
 2. Video Metadata Extraction (title, duration, thumbnail)
 3. Audio Stream Download (highest quality available)
 4. FFmpeg Audio Extraction (WAV/MP3 conversion)
@@ -318,7 +318,7 @@ interface WorkflowExecution {
 
 #### All-in-One Processing Pipeline
 ```typescript
-1. YouTube URL Validation (ytdl-core integration)
+1. YouTube URL Validation (External service integration)
 2. Video Metadata Extraction (title, duration, thumbnails)
 3. Audio Stream Processing (FFmpeg integration)
 4. OpenAI Whisper API Integration (cloud-based transcription)
@@ -589,7 +589,6 @@ Stage 2 (Production):
 ### Service-Specific Container Features
 ```dockerfile
 # Video Processor: FFmpeg integration
-RUN apk add --no-cache ffmpeg
 
 # LLM Service: Whisper and Python integration
 RUN apk add --no-cache python3 py3-pip

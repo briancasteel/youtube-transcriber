@@ -30,7 +30,7 @@ graph TB
     end
     
     subgraph "Processing Services"
-        VP[Video Processor<br/>ytdl-core + FFmpeg<br/>Port: 8002<br/>STATUS: ✅ OPERATIONAL]
+        VP[Video Processor<br/>External Services + FFmpeg<br/>Port: 8002<br/>STATUS: ✅ OPERATIONAL]
         TS[Transcription Service<br/>Port: 8003<br/>STATUS: ✅ OPERATIONAL]
         LLM[LLM Service<br/>Whisper + Ollama<br/>Port: 8005<br/>STATUS: ✅ OPERATIONAL]
     end
@@ -160,7 +160,7 @@ youtube-transcriber/
 - **Backend**: Node.js 18 + TypeScript + Express.js (✅ COMPLETE)
 - **Orchestration**: Custom workflow engine for pipeline management (✅ COMPLETE)
 - **AI Processing**: Whisper.cpp + Ollama (local LLM) (✅ COMPLETE)
-- **Video Processing**: ytdl-core for YouTube handling (✅ COMPLETE)
+- **Video Processing**: External services for YouTube handling (✅ COMPLETE)
 - **Message Queue**: Redis (✅ COMPLETE)
 - **Containerization**: Docker + Docker Compose (✅ COMPLETE)
 - **Deployment**: AWS ECS/EKS ready (✅ READY)
@@ -169,7 +169,7 @@ youtube-transcriber/
 ```json
 {
   "orchestration": "Custom workflow engine with Redis state management",
-  "youtube": "ytdl-core + FFmpeg", 
+  "youtube": "External services + FFmpeg",
   "transcription": "whisper + ollama",
   "storage": "redis + persistent volumes",
   "api": "express + axios + http-proxy-middleware"
@@ -181,7 +181,7 @@ youtube-transcriber/
 ### Implemented Workflow Pipeline
 1. **URL Validation**: YouTube URL format and accessibility validation (✅ COMPLETE)
 2. **Metadata Extraction**: Video title, duration, thumbnail extraction (✅ COMPLETE)
-3. **Audio Download**: High-quality audio extraction using ytdl-core + FFmpeg (✅ COMPLETE)
+3. **Audio Download**: High-quality audio extraction using external services + FFmpeg (✅ COMPLETE)
 4. **Whisper Transcription**: Convert audio to text with timestamps (✅ COMPLETE)
 5. **Ollama Enhancement**: Improve text quality, add punctuation (✅ COMPLETE)
 6. **Summary Generation**: Create summary and extract keywords (✅ COMPLETE)
@@ -223,7 +223,7 @@ interface WorkflowExecution {
 - ✅ Redis infrastructure
 
 ### ✅ Phase 2: Video Processing - COMPLETED
-- ✅ Video Processor Service with ytdl-core
+- ✅ Video Processor Service with external services
 - ✅ Audio extraction functionality with FFmpeg
 - ✅ File management and cleanup
 - ✅ Integration testing and validation

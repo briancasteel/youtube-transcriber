@@ -1,6 +1,6 @@
 # YouTube Transcriber
 
-A microservice-based YouTube video transcription application with local AI processing using Whisper and Ollama.
+A microservice-based YouTube video transcription application with AI processing using external services and Ollama.
 
 ## 🎯 Overview
 

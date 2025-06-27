@@ -53,7 +53,7 @@ All core backend services have been successfully implemented and are production-
 
 #### 2. Video Processor Service (Port 8002) - ✅ PRODUCTION READY
 - **Status**: Complete implementation with FFmpeg integration
-- **Technology**: Node.js with TypeScript, ytdl-core, FFmpeg
+- **Technology**: Node.js with TypeScript, External Services, FFmpeg
 - **Features Implemented**:
   - YouTube video download and metadata extraction
   - High-quality audio extraction with multiple format support
@@ -121,7 +121,7 @@ All core backend services have been successfully implemented and are production-
 
 #### 8. IntegratedMediaProcessor - ✅ COMPLETE & OPERATIONAL
 - **Status**: All-in-one media processing class for comprehensive YouTube transcription
-- **Technology**: Node.js with TypeScript, ytdl-core, FFmpeg, OpenAI Whisper API, Ollama
+- **Technology**: Node.js with TypeScript, External Services, FFmpeg, OpenAI Whisper API, Ollama
 - **Features Implemented**:
   - Complete YouTube video processing pipeline in a single service
   - Video metadata extraction and validation

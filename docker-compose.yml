@@ -48,12 +48,15 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8004:8004"
+      - "9229:9229"  # Node.js debug port
     environment:
       - NODE_ENV=development
       - PORT=8004
       - OLLAMA_URL=http://ollama:11434
       - OLLAMA_DEFAULT_MODEL=llama2:7b
       - LOG_LEVEL=debug
+      - DEBUG=*
+      - NODE_OPTIONS=--inspect=0.0.0.0:9229
       - DOWNLOAD_DIR=/app/downloads
       - OUTPUT_DIR=/app/output
       - WHISPER_MODELS_DIR=/app/models
@@ -61,6 +64,7 @@ services:
       # - OPENAI_API_KEY=your_openai_api_key_here
     volumes:
       - ./services/workflow-service/src:/app/src
+      - ./services/workflow-service/dist:/app/dist
       - workflow-downloads:/app/downloads
       - workflow-output:/app/output
       - whisper-models:/app/models

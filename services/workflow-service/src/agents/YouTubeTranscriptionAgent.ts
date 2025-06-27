@@ -4,146 +4,86 @@ import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { v4 as uuidv4 } from 'uuid';
+import axios from 'axios';
 import logger from '../utils/logger';
-import { IntegratedMediaProcessor } from '../services/IntegratedMediaProcessor';
 
-// Tool definitions
-const youtubeValidatorTool = tool(
-  async ({ videoUrl }: { videoUrl: string }) => {
-    const mediaProcessor = new IntegratedMediaProcessor();
-    const validation = await mediaProcessor.validateYouTubeUrl(videoUrl);
+// YouTube transcript tool using external service (similar to wxflows pattern)
+const youtubeTranscriptTool = tool(
+  async ({ videoUrl, langCode = "en" }: { videoUrl: string; langCode?: string }) => {
+    const toolCallId = Math.random().toString(36).substr(2, 9);
+    logger.info('Tool called: youtube_transcript', { toolCallId, videoUrl, langCode });
     
-    // Extract video ID from URL if valid
+    try {
+      // Use the same external service as the reference implementation
+      const response = await axios.post('https://tactiq-apps-prod.tactiq.io/transcript', {
+        videoUrl,
+        langCode
+      }, {
+        timeout: 30000,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const result = {
+        title: response.data.title || 'Unknown Title',
+        captions: response.data.captions || []
+      };
+
+      logger.info('Tool completed: youtube_transcript', { 
+        toolCallId, 
+        title: result.title,
+        captionCount: result.captions.length 
+      });
+      
+      return result;
+    } catch (error) {
+      logger.error('YouTube transcript tool failed', {
+        toolCallId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        videoUrl
+      });
+      throw new Error(`Failed to get transcript: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  },
+  {
+    name: "youtube_transcript",
+    description: "Get YouTube video transcript and metadata",
+    schema: z.object({
+      videoUrl: z.string().describe("The YouTube URL to get transcript for"),
+      langCode: z.string().optional().describe("Language code (default: en)")
+    })
+  }
+);
+
+// Simple URL validator tool
+const urlValidatorTool = tool(
+  async ({ videoUrl }: { videoUrl: string }) => {
+    const toolCallId = Math.random().toString(36).substr(2, 9);
+    logger.info('Tool called: url_validator', { toolCallId, videoUrl });
+    
+    // Extract video ID from URL
     let videoId = '';
-    if (validation.valid) {
-      const match = videoUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/);
-      videoId = match?.[1] || '';
+    const match = videoUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/);
+    
+    if (match && match[1]) {
+      videoId = match[1];
     }
     
-    return {
-      valid: validation.valid,
-      videoId,
-      error: validation.error
-    };
-  },
-  {
-    name: "youtube_validator",
-    description: "Validate YouTube URL format and extract video ID",
-    schema: z.object({
-      videoUrl: z.string().describe("The YouTube URL to validate")
-    })
-  }
-);
-
-const videoInfoTool = tool(
-  async ({ videoUrl }: { videoUrl: string }) => {
-    const mediaProcessor = new IntegratedMediaProcessor();
-    const videoInfo = await mediaProcessor.getVideoInfo(videoUrl);
-    return {
-      title: videoInfo.title,
-      duration: videoInfo.lengthSeconds,
-      description: videoInfo.description,
-      thumbnail: videoInfo.thumbnails?.[0]?.url || '',
-      videoId: videoInfo.videoId
-    };
-  },
-  {
-    name: "video_info",
-    description: "Get video metadata including title, duration, and description",
-    schema: z.object({
-      videoUrl: z.string().describe("The YouTube URL to get info for")
-    })
-  }
-);
-
-const audioExtractorTool = tool(
-  async ({ videoUrl, quality = "highestaudio", format = "mp3" }: { 
-    videoUrl: string; 
-    quality?: string; 
-    format?: string; 
-  }) => {
-    const mediaProcessor = new IntegratedMediaProcessor();
-    const result = await mediaProcessor.processVideo(videoUrl, quality, format);
-    return {
-      audioFile: result.audioFile,
-      duration: result.duration,
-      videoInfo: result.videoInfo
-    };
-  },
-  {
-    name: "audio_extractor",
-    description: "Extract audio from YouTube video for transcription",
-    schema: z.object({
-      videoUrl: z.string().describe("The YouTube URL to extract audio from"),
-      quality: z.string().optional().describe("Audio quality (default: highestaudio)"),
-      format: z.string().optional().describe("Audio format (default: mp3)")
-    })
-  }
-);
-
-const transcriptionTool = tool(
-  async ({ audioFile, language = "en", includeTimestamps = true }: { 
-    audioFile: string; 
-    language?: string; 
-    includeTimestamps?: boolean; 
-  }) => {
-    const mediaProcessor = new IntegratedMediaProcessor();
-    const result = await mediaProcessor.transcribeAudio(audioFile, {
-      language,
-      includeTimestamps
-    });
-    return {
-      text: result.text,
-      segments: result.segments,
-      language: result.language,
-      duration: result.duration
-    };
-  },
-  {
-    name: "transcription",
-    description: "Transcribe audio file to text using Whisper",
-    schema: z.object({
-      audioFile: z.string().describe("Path to the audio file to transcribe"),
-      language: z.string().optional().describe("Language code (default: en)"),
-      includeTimestamps: z.boolean().optional().describe("Include timestamps in transcription")
-    })
-  }
-);
-
-const textEnhancerTool = tool(
-  async ({ text, options = {} }: { 
-    text: string; 
-    options?: {
-      addPunctuation?: boolean;
-      fixGrammar?: boolean;
-      improveClarity?: boolean;
-    };
-  }) => {
-    const mediaProcessor = new IntegratedMediaProcessor();
-    const enhancementOptions = {
-      addPunctuation: options.addPunctuation ?? true,
-      fixGrammar: options.fixGrammar ?? true,
-      improveClarity: options.improveClarity ?? true
+    const result = {
+      valid: !!videoId,
+      videoId: videoId || '',
+      error: videoId ? null : 'Invalid YouTube URL format'
     };
     
-    const result = await mediaProcessor.enhanceText(text, enhancementOptions);
-    return {
-      enhancedText: result.enhancedText,
-      summary: result.summary,
-      keywords: result.keywords,
-      improvements: result.improvements
-    };
+    logger.info('Tool completed: url_validator', { toolCallId, result });
+    return result;
   },
   {
-    name: "text_enhancer",
-    description: "Enhance transcribed text with AI improvements including punctuation, grammar, and clarity",
+    name: "url_validator",
+    description: "Validate YouTube URL and extract video ID",
     schema: z.object({
-      text: z.string().describe("The text to enhance"),
-      options: z.object({
-        addPunctuation: z.boolean().optional(),
-        fixGrammar: z.boolean().optional(),
-        improveClarity: z.boolean().optional()
-      }).optional()
+      videoUrl: z.string().describe("The YouTube URL to validate")
     })
   }
 );
@@ -152,8 +92,6 @@ export interface TranscriptionOptions {
   language?: string;
   includeTimestamps?: boolean;
   enhanceText?: boolean;
-  audioQuality?: string;
-  audioFormat?: string;
 }
 
 export interface TranscriptionResult {
@@ -178,25 +116,103 @@ export interface TranscriptionResult {
 export class YouTubeTranscriptionAgent {
   private agent: any;
   private tools: any[];
+  private ollamaUrl: string;
+  private ollamaModel: string;
 
   constructor() {
+    this.ollamaUrl = process.env.OLLAMA_URL || "http://localhost:11434";
+    this.ollamaModel = process.env.OLLAMA_DEFAULT_MODEL || "llama3.2";
+    
+    logger.info('Initializing YouTubeTranscriptionAgent', {
+      ollamaUrl: this.ollamaUrl,
+      ollamaModel: this.ollamaModel
+    });
+    
     this.tools = [
-      youtubeValidatorTool,
-      videoInfoTool,
-      audioExtractorTool,
-      transcriptionTool,
-      textEnhancerTool
+      urlValidatorTool,
+      youtubeTranscriptTool
     ];
 
+    logger.info('Creating ChatOllama instance', {
+      model: this.ollamaModel,
+      baseUrl: this.ollamaUrl,
+      temperature: 0,
+      format: "json"
+    });
+
+    const chatOllama = new ChatOllama({ 
+      model: this.ollamaModel, 
+      temperature: 0, 
+      format: "json",
+      baseUrl: this.ollamaUrl
+    });
+
+    logger.info('Creating ReAct agent with ChatOllama and tools', {
+      toolCount: this.tools.length,
+      toolNames: this.tools.map(tool => tool.name)
+    });
+
     this.agent = createReactAgent({
-      llm: new ChatOllama({ 
-        model: "llama3.2", 
-        temperature: 0, 
-        format: "json",
-        baseUrl: process.env.OLLAMA_BASE_URL || "http://localhost:11434"
-      }),
+      llm: chatOllama,
       tools: this.tools,
     });
+
+    logger.info('YouTubeTranscriptionAgent initialized successfully');
+  }
+
+  private async testOllamaConnection(): Promise<void> {
+    try {
+      logger.info('Testing Ollama connection', {
+        url: this.ollamaUrl,
+        model: this.ollamaModel
+      });
+      
+      // Test if Ollama is running
+      const healthResponse = await axios.get(`${this.ollamaUrl}/api/tags`, {
+        timeout: 5000
+      });
+
+      if (healthResponse.status !== 200) {
+        throw new Error(`Ollama health check failed with status: ${healthResponse.status}`);
+      }
+
+      // Check if the required model is available
+      const models = healthResponse.data.models || [];
+      const modelExists = models.some((model: any) => model.name === this.ollamaModel);
+
+      if (!modelExists) {
+        logger.warn('Required model not found, attempting to pull', {
+          model: this.ollamaModel,
+          availableModels: models.map((m: any) => m.name)
+        });
+
+        // Attempt to pull the model
+        await axios.post(`${this.ollamaUrl}/api/pull`, {
+          name: this.ollamaModel
+        }, {
+          timeout: 300000 // 5 minutes for model pull
+        });
+
+        logger.info('Model pulled successfully', { model: this.ollamaModel });
+      }
+
+      logger.info('Ollama connection test successful', {
+        url: this.ollamaUrl,
+        model: this.ollamaModel,
+        modelsAvailable: models.length
+      });
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Ollama connection test failed', {
+        url: this.ollamaUrl,
+        model: this.ollamaModel,
+        error: errorMessage,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+
+      throw new Error(`Cannot connect to Ollama at ${this.ollamaUrl}: ${errorMessage}`);
+    }
   }
 
   async transcribe(videoUrl: string, options: TranscriptionOptions = {}): Promise<TranscriptionResult> {
@@ -206,79 +222,87 @@ export class YouTubeTranscriptionAgent {
     logger.info('Starting YouTube transcription', {
       executionId,
       videoUrl,
-      options
+      options,
+      ollamaUrl: this.ollamaUrl,
+      ollamaModel: this.ollamaModel
     });
 
     try {
+      // Test Ollama connection before processing
+      await this.testOllamaConnection();
+      
+      logger.info('Ollama connection test passed, starting agent invocation', { executionId });
+      
       const systemPrompt = `
-You're a YouTube transcription agent specialized in processing YouTube videos into high-quality transcriptions.
+You're a YouTube transcription agent.
 
-Your workflow should be:
-1. Validate the YouTube URL and extract video ID
-2. Get video information (title, duration, description)
-3. Extract audio from the video
-4. Transcribe the audio to text
-5. Enhance the text if requested
-6. Generate a summary and extract keywords
-7. Return structured results
+You should retrieve the video id for a given YouTube url and return the title and description of the video. 
+Also retrieve the transcript for the youtube video using the transcript tool.
+Use all tools at your disposal.
 
-Available tools:
-- youtube_validator: Validate YouTube URL and extract video ID
-- video_info: Get video metadata (title, duration, description, thumbnail)
-- audio_extractor: Extract audio from YouTube video
-- transcription: Transcribe audio to text using Whisper
-- text_enhancer: Enhance text with AI improvements
+You have the following tools:
+1. url_validator: Validate YouTube URL and extract video ID
+2. youtube_transcript: Get transcript and title for YouTube video
+   - Parameters: { "videoUrl": "https://www.youtube.com/watch?v=VIDEO_ID", "langCode": "en" }
 
-Options provided:
-- Language: ${options.language || 'en'}
-- Include timestamps: ${options.includeTimestamps ?? true}
-- Enhance text: ${options.enhanceText ?? true}
-- Audio quality: ${options.audioQuality || 'highestaudio'}
-- Audio format: ${options.audioFormat || 'mp3'}
+Generate the description by summarizing the transcript content.
 
-Return the final result in this exact JSON structure:
+Return output in the following JSON structure:
 {
-  "videoId": "extracted_video_id",
-  "title": "video_title_from_metadata",
-  "description": "ai_generated_summary_of_content",
-  "captions": [
-    {
-      "text": "transcribed_text_segment",
-      "start": timestamp_in_seconds,
-      "duration": segment_duration
+    "videoId": "ID of the video",
+    "title": "video title from transcript service",
+    "description": "AI-generated summary of the transcript content",
+    "captions": [
+        {
+            "text": "transcript text segment",
+            "start": start_time_in_seconds,
+            "duration": duration_in_seconds
+        }
+    ],
+    "summary": "concise summary of video content",
+    "keywords": ["key", "words", "from", "content"],
+    "metadata": {
+        "duration": total_video_duration_seconds,
+        "language": "${options.language || 'en'}",
+        "processingTime": 0,
+        "enhanced": false
     }
-  ],
-  "summary": "concise_summary_of_video_content",
-  "keywords": ["key", "words", "from", "content"],
-  "metadata": {
-    "duration": video_duration_seconds,
-    "language": "detected_or_specified_language",
-    "processingTime": processing_time_ms,
-    "enhanced": true_if_text_was_enhanced
-  }
 }
 
-Important: 
-- Always validate the URL first
-- Get video info before processing
-- Use appropriate audio quality for transcription
-- Enhance text only if requested
-- Generate meaningful summaries and keywords
-- Handle errors gracefully and provide helpful error messages
-- Ensure all fields are populated with actual data
+Do not return the data without populating all fields with actual data.
+Always validate the URL first, then get the transcript.
 `;
+
+      logger.info('Invoking agent with messages', {
+        executionId,
+        systemPromptLength: systemPrompt.length,
+        videoUrl
+      });
 
       const response = await this.agent.invoke({
         messages: [
           new SystemMessage(systemPrompt),
-          new HumanMessage(`Please transcribe this YouTube video: ${videoUrl}`)
+          new HumanMessage(`Here is the YouTube URL: ${videoUrl}.`)
         ],
+      });
+
+      logger.info('Agent invocation completed', {
+        executionId,
+        responseMessageCount: response.messages?.length || 0,
+        responseType: typeof response
       });
 
       const processingTime = Date.now() - startTime;
       
       // Extract the final message content
       const finalMessage = response.messages[response.messages.length - 1];
+      
+      logger.info('Processing agent response', {
+        executionId,
+        finalMessageType: typeof finalMessage?.content,
+        finalMessageLength: typeof finalMessage?.content === 'string' ? finalMessage.content.length : 0
+      });
+
       let result: TranscriptionResult;
 
       try {
@@ -309,7 +333,7 @@ Important:
         videoId: result.videoId,
         title: result.title,
         processingTime,
-        enhanced: result.metadata.enhanced
+        captionCount: result.captions?.length || 0
       });
 
       return result;
@@ -330,16 +354,25 @@ Important:
 
   async getAgentStatus(): Promise<{ available: boolean; model: string; tools: string[] }> {
     try {
+      // Test Ollama connection to determine availability
+      await this.testOllamaConnection();
+      
       return {
         available: true,
-        model: "llama3.2",
+        model: this.ollamaModel,
         tools: this.tools.map(tool => tool.name)
       };
     } catch (error) {
+      logger.warn('Agent status check failed', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        ollamaUrl: this.ollamaUrl,
+        model: this.ollamaModel
+      });
+      
       return {
         available: false,
-        model: "llama3.2",
-        tools: []
+        model: this.ollamaModel,
+        tools: this.tools.map(tool => tool.name)
       };
     }
   }

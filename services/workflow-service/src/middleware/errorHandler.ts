@@ -27,7 +27,7 @@ export const errorHandler = (
   error: AppError,
   req: Request,
   res: Response,
-  next: NextFunction
+  _next: NextFunction
 ): void => {
   const requestId = res.locals['requestId'] || 'unknown';
   

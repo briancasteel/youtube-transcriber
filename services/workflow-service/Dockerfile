@@ -1,5 +1,5 @@
 # Use Node.js 18 Alpine as base image
-FROM node:18-alpine
+FROM node:current-alpine
 
 # Set working directory
 WORKDIR /app
@@ -14,7 +14,7 @@ COPY package*.json ./
 COPY tsconfig.json ./
 
 # Install all dependencies (including dev dependencies for build)
-RUN npm install && npm cache clean --force
+RUN npm ci --only=production && npm cache clean --force
 
 # Copy source code
 COPY src/ ./src/
@@ -22,8 +22,8 @@ COPY src/ ./src/
 # Build the application
 RUN npm run build
 
-# Remove development dependencies and source files
-RUN npm prune --production && rm -rf src/ tsconfig.json
+# Keep development dependencies for debugging (comment out for production)
+# RUN npm prune --production && rm -rf src/ tsconfig.json
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
@@ -35,8 +35,9 @@ RUN chown -R workflow:nodejs /app
 # Switch to non-root user
 USER workflow
 
-# Expose port
+# Expose ports
 EXPOSE 8004
+EXPOSE 9229
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \

@@ -29,11 +29,6 @@ jest.mock('winston', () => ({
   },
 }));
 
-// Mock node-cron
-jest.mock('node-cron', () => ({
-  schedule: jest.fn(),
-  destroy: jest.fn(),
-}));
 
 // Suppress console logs during tests unless explicitly needed
 const originalConsole = console;
