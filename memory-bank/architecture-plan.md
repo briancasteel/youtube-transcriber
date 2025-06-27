@@ -8,7 +8,7 @@ A microservice-based YouTube video transcription application with:
 - **Orchestration**: Intelligent ReAct workflow engine for adaptive pipeline management (✅ COMPLETE)
 - **Deployment**: Containerized for AWS deployment (✅ READY)
 
-## 🏗️ System Architecture - ✅ FULLY IMPLEMENTED
+## 🏗️ System Architecture - ✅ FULLY IMPLEMENTED WITH gRPC
 
 ```mermaid
 graph TB
@@ -17,7 +17,11 @@ graph TB
     end
     
     subgraph "API Layer"
-        GW[API Gateway<br/>Port: 8000<br/>STATUS: ✅ OPERATIONAL]
+        GW[API Gateway<br/>Express + gRPC Client<br/>Port: 8000<br/>STATUS: ✅ OPERATIONAL]
+    end
+    
+    subgraph "gRPC Communication Layer"
+        GRPC[gRPC Protocol<br/>Binary + HTTP/2<br/>STATUS: ✅ OPERATIONAL]
     end
     
     subgraph "Intelligence Layer"
@@ -25,7 +29,7 @@ graph TB
     end
     
     subgraph "Orchestration Layer"
-        WF[Workflow Service<br/>Port: 8004<br/>STATUS: ✅ OPERATIONAL]
+        WF[Workflow Service<br/>gRPC Server + HTTP Fallback<br/>Ports: 50051 (gRPC) + 8004 (HTTP)<br/>STATUS: ✅ OPERATIONAL]
         IMP[IntegratedMediaProcessor<br/>All-in-One Processing<br/>STATUS: ✅ OPERATIONAL]
     end
     
@@ -41,7 +45,8 @@ graph TB
     end
     
     FE --> GW
-    GW --> WF
+    GW -.->|gRPC| GRPC
+    GRPC -.->|High Performance| WF
     GW --> VP
     GW --> TS
     GW --> LLM
