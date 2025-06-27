@@ -10,20 +10,23 @@ RUN apk add --no-cache \
     && rm -rf /var/cache/apk/*
 
 # Copy package files
-COPY package*.json ./
-COPY tsconfig.json ./
+COPY services/workflow-service/package*.json ./
+COPY services/workflow-service/tsconfig.json ./
 
 # Install all dependencies (including dev dependencies for build)
-RUN npm ci --only=production && npm cache clean --force
+RUN npm install && npm cache clean --force
+
+# Copy proto files (will be provided by build context)
+COPY shared/proto/ ./proto/
 
 # Copy source code
-COPY src/ ./src/
+COPY services/workflow-service/src/ ./src/
 
 # Build the application
 RUN npm run build
 
-# Keep development dependencies for debugging (comment out for production)
-# RUN npm prune --production && rm -rf src/ tsconfig.json
+# Remove dev dependencies after build
+RUN npm prune --production
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
@@ -37,6 +40,7 @@ USER workflow
 
 # Expose ports
 EXPOSE 8004
+EXPOSE 50051
 EXPOSE 9229
 
 # Health check
@@ -47,4 +51,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 ENTRYPOINT ["dumb-init", "--"]
 
 # Start the application
-CMD ["node", "dist/server.js"]
+CMD ["node", "dist/index.js"]

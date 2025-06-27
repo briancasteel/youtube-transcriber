@@ -4,17 +4,13 @@ const helmet = require('helmet');
 const compression = require('compression');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
-const { createProxyMiddleware } = require('http-proxy-middleware');
-const axios = require('axios');
+const { grpcClient, mapGrpcErrorToHttp } = require('./grpcClient');
 
 const app = express();
 const port = process.env.PORT || 8080;
 
-// Service URLs
-const WORKFLOW_SERVICE_URL = process.env.WORKFLOW_SERVICE_URL || 'http://workflow-service:8004';
-
 console.log(`Starting API Gateway on port ${port}`);
-console.log(`Workflow Service URL: ${WORKFLOW_SERVICE_URL}`);
+console.log(`Using gRPC for workflow service communication`);
 
 // Security middleware
 app.use(helmet({
@@ -67,32 +63,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// Proxy configuration
-const proxyOptions = {
-  target: WORKFLOW_SERVICE_URL,
-  changeOrigin: true,
-  timeout: 120000, // 2 minutes for workflow requests
-  proxyTimeout: 120000, // 2 minutes for workflow requests
-  onProxyReq: (proxyReq, req, res) => {
-    proxyReq.setHeader('X-Request-ID', req.requestId);
-    console.log(`Proxying ${req.method} ${req.url} to ${WORKFLOW_SERVICE_URL}${req.url}`);
-  },
-  onProxyRes: (proxyRes, req, res) => {
-    console.log(`Proxy response: ${proxyRes.statusCode} for ${req.method} ${req.url}`);
-  },
-  onError: (err, req, res) => {
-    console.error(`Proxy error for ${req.method} ${req.url}:`, err.message);
-    if (!res.headersSent) {
-      res.status(502).json({
-        success: false,
-        error: 'Bad Gateway - Service unavailable',
-        code: 'PROXY_ERROR',
-        timestamp: new Date().toISOString(),
-        requestId: req.requestId
-      });
-    }
-  }
-};
 
 // Health check endpoint (direct response)
 app.get('/health', (req, res) => {
@@ -141,14 +111,92 @@ app.get('/', (req, res) => {
 });
 
 
-// API routes with rate limiting and proxying
-// Note: Order matters - more specific routes must come first
-app.use('/api/transcribe*', transcriptionLimiter, createProxyMiddleware(proxyOptions));
-app.use('/api/validate*', transcriptionLimiter, createProxyMiddleware(proxyOptions));
-app.use('/api/agent*', createProxyMiddleware(proxyOptions));
+// API routes with rate limiting and gRPC calls
+app.post('/api/transcribe', transcriptionLimiter, async (req, res) => {
+  try {
+    console.log(`gRPC call: Transcribe for ${req.body.videoUrl}`);
+    const result = await grpcClient.transcribe(req.body.videoUrl, req.body.options);
+    res.json(result);
+  } catch (error) {
+    console.error('gRPC Transcribe error:', error.message);
+    const statusCode = error.httpStatus || 500;
+    res.status(statusCode).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString(),
+      requestId: req.requestId
+    });
+  }
+});
 
-// Catch-all for other API routes
-app.use('/api/*', createProxyMiddleware(proxyOptions));
+app.post('/api/validate', transcriptionLimiter, async (req, res) => {
+  try {
+    console.log(`gRPC call: ValidateUrl for ${req.body.videoUrl}`);
+    const result = await grpcClient.validateUrl(req.body.videoUrl);
+    res.json(result);
+  } catch (error) {
+    console.error('gRPC ValidateUrl error:', error.message);
+    const statusCode = error.httpStatus || 500;
+    res.status(statusCode).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString(),
+      requestId: req.requestId
+    });
+  }
+});
+
+app.get('/api/agent/status', async (req, res) => {
+  try {
+    console.log('gRPC call: GetAgentStatus');
+    const result = await grpcClient.getAgentStatus();
+    res.json(result);
+  } catch (error) {
+    console.error('gRPC GetAgentStatus error:', error.message);
+    const statusCode = error.httpStatus || 500;
+    res.status(statusCode).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString(),
+      requestId: req.requestId
+    });
+  }
+});
+
+// Workflow service health check via gRPC
+app.get('/api/workflow/health', async (req, res) => {
+  try {
+    console.log('gRPC call: GetHealth');
+    const result = await grpcClient.getHealth(req.requestId);
+    res.json(result);
+  } catch (error) {
+    console.error('gRPC GetHealth error:', error.message);
+    const statusCode = error.httpStatus || 500;
+    res.status(statusCode).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString(),
+      requestId: req.requestId
+    });
+  }
+});
+
+app.get('/api/workflow/health/detailed', async (req, res) => {
+  try {
+    console.log('gRPC call: GetDetailedHealth');
+    const result = await grpcClient.getDetailedHealth(req.requestId);
+    res.json(result);
+  } catch (error) {
+    console.error('gRPC GetDetailedHealth error:', error.message);
+    const statusCode = error.httpStatus || 500;
+    res.status(statusCode).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString(),
+      requestId: req.requestId
+    });
+  }
+});
 
 // 404 handler
 app.use('*', (req, res) => {
@@ -178,7 +226,7 @@ app.use((err, req, res, next) => {
 const server = app.listen(port, () => {
   console.log(`API Gateway started on port ${port}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`Proxying to: ${WORKFLOW_SERVICE_URL}`);
+  console.log(`Using gRPC for internal communication`);
 });
 
 // Graceful shutdown

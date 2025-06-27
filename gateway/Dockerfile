@@ -4,13 +4,16 @@ FROM node:18-alpine
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY gateway/package*.json ./
 
 # Install dependencies
 RUN npm install && npm cache clean --force
 
+# Copy proto files (will be provided by build context)
+COPY shared/proto/ ./proto/
+
 # Copy source code
-COPY src/ ./src/
+COPY gateway/src/ ./src/
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \

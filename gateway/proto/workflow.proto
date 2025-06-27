@@ -1,0 +1,152 @@
+syntax = "proto3";
+
+package workflow;
+
+// Main workflow service definition
+service WorkflowService {
+  // Process YouTube video transcription
+  rpc Transcribe(TranscribeRequest) returns (TranscribeResponse);
+  
+  // Validate YouTube URL without processing
+  rpc ValidateUrl(ValidateRequest) returns (ValidateResponse);
+  
+  // Get agent status and available tools
+  rpc GetAgentStatus(AgentStatusRequest) returns (AgentStatusResponse);
+  
+  // Get basic health status
+  rpc GetHealth(HealthRequest) returns (HealthResponse);
+  
+  // Get detailed health status
+  rpc GetDetailedHealth(HealthRequest) returns (DetailedHealthResponse);
+}
+
+// Request messages
+message TranscribeRequest {
+  string video_url = 1;
+  optional TranscriptionOptions options = 2;
+}
+
+message TranscriptionOptions {
+  optional string language = 1;
+  optional bool include_timestamps = 2;
+  optional bool enhance_text = 3;
+  optional string audio_quality = 4;
+  optional string audio_format = 5;
+}
+
+message ValidateRequest {
+  string video_url = 1;
+}
+
+message AgentStatusRequest {
+  // Empty request
+}
+
+message HealthRequest {
+  optional string request_id = 1;
+}
+
+// Response messages
+message TranscribeResponse {
+  bool success = 1;
+  optional TranscriptionData data = 2;
+  optional string error = 3;
+  optional string execution_id = 4;
+}
+
+message TranscriptionData {
+  string video_id = 1;
+  string title = 2;
+  string description = 3;
+  int32 duration = 4;
+  string channel = 5;
+  repeated Caption captions = 6;
+  optional string summary = 7;
+  repeated string key_points = 8;
+}
+
+message Caption {
+  string text = 1;
+  optional double start_time = 2;
+  optional double end_time = 3;
+}
+
+message ValidateResponse {
+  bool success = 1;
+  optional ValidationData data = 2;
+  optional string error = 3;
+}
+
+message ValidationData {
+  string video_id = 1;
+  string title = 2;
+  int32 duration = 3;
+  string channel = 4;
+  bool is_valid = 5;
+}
+
+message AgentStatusResponse {
+  bool success = 1;
+  optional AgentStatusData data = 2;
+  optional string error = 3;
+}
+
+message AgentStatusData {
+  bool available = 1;
+  string model = 2;
+  repeated string tools = 3;
+}
+
+message HealthResponse {
+  bool success = 1;
+  HealthData data = 2;
+  string timestamp = 3;
+  optional string request_id = 4;
+}
+
+message DetailedHealthResponse {
+  bool success = 1;
+  DetailedHealthData data = 2;
+  string timestamp = 3;
+  optional string request_id = 4;
+}
+
+message HealthData {
+  string status = 1;
+  string service = 2;
+  string version = 3;
+  double uptime = 4;
+  string timestamp = 5;
+}
+
+message DetailedHealthData {
+  string status = 1;
+  string service = 2;
+  string version = 3;
+  double uptime = 4;
+  string timestamp = 5;
+  optional string environment = 6;
+  optional string node_version = 7;
+  optional MemoryInfo memory = 8;
+  optional CpuInfo cpu = 9;
+  optional DependencyStatus dependencies = 10;
+}
+
+message MemoryInfo {
+  int32 used = 1;
+  int32 total = 2;
+  int32 external = 3;
+  int32 rss = 4;
+}
+
+message CpuInfo {
+  repeated double load_average = 1;
+  int32 cpu_count = 2;
+}
+
+message DependencyStatus {
+  string video_processor = 1;
+  string transcription_service = 2;
+  string llm_service = 3;
+  string ollama = 4;
+}

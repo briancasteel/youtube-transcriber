@@ -19,16 +19,17 @@ services:
       retries: 3
       start_period: 30s
 
-  # API Gateway - Express Gateway for request routing and rate limiting
+  # API Gateway - Express Gateway with gRPC client for workflow service
   api-gateway:
     build:
-      context: ./gateway
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./gateway/Dockerfile
     ports:
       - "8000:8080"
     environment:
       - NODE_ENV=development
       - LOG_LEVEL=info
+      - WORKFLOW_SERVICE_GRPC_URL=workflow-service:50051
     depends_on:
       - workflow-service
     networks:
@@ -41,17 +42,19 @@ services:
       start_period: 30s
 
 
-  # Workflow Service - Integrated ReAct workflow engine with media processing
+  # Workflow Service - gRPC server with HTTP fallback for backward compatibility
   workflow-service:
     build:
-      context: ./services/workflow-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./services/workflow-service/Dockerfile
     ports:
-      - "8004:8004"
-      - "9229:9229"  # Node.js debug port
+      - "8004:8004"    # HTTP port (backward compatibility)
+      - "50051:50051"  # gRPC port
+      - "9229:9229"    # Node.js debug port
     environment:
       - NODE_ENV=development
-      - PORT=8004
+      - HTTP_PORT=8004
+      - GRPC_PORT=50051
       - OLLAMA_URL=http://ollama:11434
       - OLLAMA_DEFAULT_MODEL=llama2:7b
       - LOG_LEVEL=debug
