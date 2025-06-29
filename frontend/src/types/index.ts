@@ -27,7 +27,6 @@ export interface TranscriptionJob {
   status: 'queued' | 'processing' | 'completed' | 'failed';
   progress: number;
   originalFilename?: string;
-  whisperOptions?: WhisperOptions;
   enhancementOptions?: TextEnhancementOptions;
   result?: TranscriptionResult;
   createdAt: string;
@@ -36,15 +35,6 @@ export interface TranscriptionJob {
   error?: string;
 }
 
-export interface WhisperOptions {
-  model?: 'tiny' | 'base' | 'small' | 'medium' | 'large';
-  language?: string;
-  outputFormat?: 'txt' | 'srt' | 'vtt' | 'json';
-  includeTimestamps?: boolean;
-  includeWordTimestamps?: boolean;
-  temperature?: number;
-  maxTokens?: number;
-}
 
 export interface TextEnhancementOptions {
   model?: string;
@@ -57,18 +47,12 @@ export interface TextEnhancementOptions {
   extractKeywords?: boolean;
 }
 
-export interface WhisperResult {
+export interface TranscriptionData {
   text: string;
   segments?: Array<{
     start: number;
     end: number;
     text: string;
-    words?: Array<{
-      start: number;
-      end: number;
-      word: string;
-      probability: number;
-    }>;
   }>;
   language?: string;
   duration?: number;
@@ -87,10 +71,9 @@ export interface EnhancedText {
 }
 
 export interface TranscriptionResult {
-  transcription: WhisperResult;
+  transcription: TranscriptionData;
   enhancement?: EnhancedText;
   processingTime: {
-    whisperDuration: number;
     enhancementDuration: number;
     totalDuration: number;
   };

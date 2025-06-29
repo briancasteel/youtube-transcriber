@@ -12,7 +12,6 @@ Successfully removed FFmpeg and all related dependencies from the YouTube transc
 - `@distube/ytdl-core: ^4.13.5` - YouTube video downloader
 - `multer: ^1.4.5-lts.1` - File upload middleware (no longer needed)
 - `node-cron: ^3.0.3` - Cron job scheduler (no longer needed)
-- `node-whisper: ^2024.11.13` - Local Whisper integration (replaced with external service)
 - `openai: ^4.20.1` - OpenAI API client (no longer needed for transcription)
 
 #### Development Dependencies Removed:

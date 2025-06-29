@@ -295,7 +295,6 @@ POST /api/workflow/execution/:id/cancel # Cancel workflow
 POST /api/llm/transcribe          # Direct audio transcription
 GET  /api/llm/jobs/:jobId/status  # Get job status
 GET  /api/llm/jobs/:jobId/result  # Get job result
-GET  /api/llm/models/whisper      # Available Whisper models
 GET  /api/llm/models/ollama       # Available Ollama models
 ```
 

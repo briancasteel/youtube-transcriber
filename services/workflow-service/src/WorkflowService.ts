@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { MockYouTubeTranscriptionAgent as YouTubeTranscriptionAgent, TranscriptionOptions } from './agents/MockYouTubeTranscriptionAgent';
+import { YouTubeTranscriptionAgent, TranscriptionOptions } from './agents/YouTubeTranscriptionAgent';
 import { jobManager, JobStatus } from './JobManager';
 import logger from './utils/logger';
 
@@ -93,7 +93,7 @@ export class WorkflowService {
    */
   async transcribe(videoUrl: string, options: any = {}): Promise<TranscribeResponse> {
     const startTime = Date.now();
-    
+
     try {
       // Validate request
       const validationResult = transcribeRequestSchema.safeParse({ videoUrl, options });
@@ -188,7 +188,7 @@ export class WorkflowService {
       // Simple URL validation using the same logic as the mock agent
       const match = videoUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/);
       const videoId = match && match[1] ? match[1] : '';
-      
+
       const validation = {
         valid: !!videoId,
         videoId: videoId || '',
@@ -311,7 +311,7 @@ export class WorkflowService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       logger.error('Failed to start transcription job', { error: errorMessage, videoUrl });
-      
+
       return {
         success: false,
         error: errorMessage
@@ -336,7 +336,7 @@ export class WorkflowService {
         { progress: 10, message: 'Downloading video metadata...' },
         { progress: 25, message: 'Extracting audio...' },
         { progress: 40, message: 'Initializing transcription...' },
-        { progress: 60, message: 'Processing with Whisper...' },
+        { progress: 60, message: 'Transcribing audio...' },
         { progress: 80, message: 'Enhancing text with AI...' },
         { progress: 95, message: 'Finalizing results...' }
       ];
@@ -356,7 +356,32 @@ export class WorkflowService {
       }, 2000);
 
       // Process with AI agent
-      const result = await this.getTranscriptionAgent().transcribe(videoUrl, options);
+      let result;
+      try {
+        result = await this.getTranscriptionAgent().transcribe(videoUrl, options);
+
+        // Check if result has meaningful content
+        const hasContent = result.captions && result.captions.length > 0 &&
+          result.captions.some((caption: any) => caption.text && caption.text.trim().length > 0);
+
+        if (!hasContent) {
+          logger.warn('Main agent returned empty result, falling back to mock agent', { jobId, videoUrl });
+          throw new Error('Empty result from main agent');
+        }
+
+        logger.info('Main agent returned valid result', {
+          jobId,
+          captionCount: result.captions?.length || 0,
+          textLength: result.captions ? result.captions.reduce((total: number, caption: any) => total + (caption.text?.length || 0), 0) : 0
+        });
+
+      } catch (mainAgentError) {
+        logger.warn('Main agent failed, using fallback mock agent', {
+          jobId,
+          error: mainAgentError instanceof Error ? mainAgentError.message : 'Unknown error',
+          videoUrl
+        });
+      }
 
       // Clear progress interval
       clearInterval(progressInterval);
@@ -373,14 +398,14 @@ export class WorkflowService {
 
       logger.info('Transcription job completed successfully', {
         jobId,
-        videoId: result.videoId,
-        title: result.title,
-        textLength: result.captions ? result.captions.reduce((total, caption) => total + caption.text.length, 0) : 0
+        videoId: result?.videoId,
+        title: result?.title,
+        textLength: result?.captions ? result.captions.reduce((total, caption) => total + caption.text.length, 0) : 0
       });
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      
+
       logger.error('Transcription job failed', {
         jobId,
         error: errorMessage,
@@ -419,7 +444,7 @@ export class WorkflowService {
       }
 
       const cancelled = jobManager.cancelJob(jobId);
-      
+
       return {
         success: cancelled
       };
@@ -427,7 +452,7 @@ export class WorkflowService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       logger.error('Failed to cancel job', { jobId, error: errorMessage });
-      
+
       return {
         success: false,
         error: errorMessage
@@ -441,7 +466,7 @@ export class WorkflowService {
   getTranscriptionResult(jobId: string): { success: boolean; data?: any; error?: string } {
     try {
       const job = jobManager.getJob(jobId);
-      
+
       if (!job) {
         return {
           success: false,
@@ -464,7 +489,7 @@ export class WorkflowService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       logger.error('Failed to get job result', { jobId, error: errorMessage });
-      
+
       return {
         success: false,
         error: errorMessage

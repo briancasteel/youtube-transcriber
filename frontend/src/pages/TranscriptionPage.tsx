@@ -16,7 +16,7 @@ import {
   Zap
 } from 'lucide-react';
 import { apiService } from '../services/api';
-import { WhisperOptions, TextEnhancementOptions } from '../types';
+import { TextEnhancementOptions } from '../types';
 import { isValidYouTubeUrl, formatDuration, downloadFile, copyToClipboard } from '../utils';
 
 type InputMethod = 'youtube' | 'upload';
@@ -54,14 +54,6 @@ export function TranscriptionPage() {
     error: null,
   });
 
-  // Whisper Options
-  const [whisperOptions, setWhisperOptions] = useState<WhisperOptions>({
-    model: 'base',
-    outputFormat: 'txt',
-    includeTimestamps: false,
-    includeWordTimestamps: false,
-    temperature: 0.0,
-  });
 
   // Enhancement Options
   const [enhancementOptions, setEnhancementOptions] = useState<TextEnhancementOptions>({
@@ -121,6 +113,16 @@ export function TranscriptionPage() {
           // Load the result
           try {
             const result = await apiService.getTranscriptionResult(jobId);
+            console.log('Transcription result received:', result);
+            console.log('Result structure:', {
+              hasCaption: !!result.captions,
+              captionCount: result.captions?.length || 0,
+              hasDescription: !!result.description,
+              hasSummary: !!result.summary,
+              hasTranscription: !!result.transcription,
+              resultKeys: Object.keys(result)
+            });
+            
             setTranscriptionState(prev => ({
               ...prev,
               result,
@@ -174,7 +176,6 @@ export function TranscriptionPage() {
 
         const result = await apiService.startYouTubeTranscription(
           youtubeUrl,
-          whisperOptions,
           enhancementOptions
         );
         executionId = result.executionId;
@@ -185,7 +186,6 @@ export function TranscriptionPage() {
 
         const result = await apiService.uploadAudioFile(
           selectedFile,
-          whisperOptions,
           enhancementOptions
         );
         executionId = result.jobId;
@@ -319,7 +319,37 @@ export function TranscriptionPage() {
   // Show results if completed
   if (transcriptionState.status === 'completed' && transcriptionState.result) {
     const result = transcriptionState.result;
-    const transcriptionText = result.captions ? result.captions.map((c: any) => c.text).join(' ') : result.transcription?.text || '';
+    
+    // Try multiple ways to extract transcription text
+    let transcriptionText = '';
+    
+    if (result.captions && Array.isArray(result.captions) && result.captions.length > 0) {
+      // Primary: Extract from captions array
+      transcriptionText = result.captions.map((c: any) => c.text || '').filter(Boolean).join(' ');
+    } else if (result.transcription?.text) {
+      // Secondary: Extract from transcription.text
+      transcriptionText = result.transcription.text;
+    } else if (result.description) {
+      // Tertiary: Use description as fallback
+      transcriptionText = result.description;
+    } else if (result.summary) {
+      // Quaternary: Use summary as fallback
+      transcriptionText = result.summary;
+    } else if (typeof result === 'string') {
+      // Quinary: If result is just a string
+      transcriptionText = result;
+    }
+    
+    // Log what we found for debugging
+    console.log('Text extraction result:', {
+      foundText: !!transcriptionText,
+      textLength: transcriptionText.length,
+      source: result.captions?.length ? 'captions' : 
+              result.transcription?.text ? 'transcription.text' :
+              result.description ? 'description' :
+              result.summary ? 'summary' :
+              typeof result === 'string' ? 'direct string' : 'none'
+    });
     
     return (
       <div className="max-w-4xl mx-auto space-y-8">
@@ -394,9 +424,28 @@ export function TranscriptionPage() {
           </div>
           
           <div className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
-            <pre className="whitespace-pre-wrap text-sm text-gray-900 font-mono">
-              {transcriptionText}
-            </pre>
+            {transcriptionText ? (
+              <pre className="whitespace-pre-wrap text-sm text-gray-900 font-mono">
+                {transcriptionText}
+              </pre>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <AlertCircle className="w-8 h-8 mx-auto mb-2" />
+                <p className="text-lg font-medium">No transcription text found</p>
+                <p className="text-sm mt-1">
+                  The transcription completed but no text content was extracted.
+                  This might be due to an empty video or processing error.
+                </p>
+                <details className="mt-4 text-left">
+                  <summary className="cursor-pointer text-blue-600 hover:text-blue-700">
+                    Show raw result data
+                  </summary>
+                  <pre className="mt-2 p-2 bg-gray-100 rounded text-xs overflow-auto">
+                    {JSON.stringify(result, null, 2)}
+                  </pre>
+                </details>
+              </div>
+            )}
           </div>
         </div>
 
@@ -699,49 +748,6 @@ export function TranscriptionPage() {
               </button>
             </div>
 
-            {/* Basic Options */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label htmlFor="model" className="block text-sm font-medium text-gray-700">
-                  Whisper Model
-                </label>
-                <select
-                  id="model"
-                  value={whisperOptions.model}
-                  onChange={(e) => setWhisperOptions(prev => ({ 
-                    ...prev, 
-                    model: e.target.value as WhisperOptions['model']
-                  }))}
-                  className="input-field"
-                >
-                  <option value="tiny">Tiny (fastest, least accurate)</option>
-                  <option value="base">Base (balanced)</option>
-                  <option value="small">Small (good accuracy)</option>
-                  <option value="medium">Medium (better accuracy)</option>
-                  <option value="large">Large (best accuracy, slowest)</option>
-                </select>
-              </div>
-
-              <div className="space-y-2">
-                <label htmlFor="output-format" className="block text-sm font-medium text-gray-700">
-                  Output Format
-                </label>
-                <select
-                  id="output-format"
-                  value={whisperOptions.outputFormat}
-                  onChange={(e) => setWhisperOptions(prev => ({ 
-                    ...prev, 
-                    outputFormat: e.target.value as WhisperOptions['outputFormat']
-                  }))}
-                  className="input-field"
-                >
-                  <option value="txt">Plain Text</option>
-                  <option value="srt">SRT Subtitles</option>
-                  <option value="vtt">VTT Subtitles</option>
-                  <option value="json">JSON with Metadata</option>
-                </select>
-              </div>
-            </div>
 
             {/* Enhancement Options */}
             <div className="space-y-4">
@@ -814,83 +820,6 @@ export function TranscriptionPage() {
               </div>
             </div>
 
-            {/* Advanced Options */}
-            {showAdvanced && (
-              <div className="space-y-4 pt-4 border-t border-gray-200">
-                <h3 className="text-lg font-medium text-gray-900">Advanced Options</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label htmlFor="language" className="block text-sm font-medium text-gray-700">
-                      Language (optional)
-                    </label>
-                    <input
-                      id="language"
-                      type="text"
-                      value={whisperOptions.language || ''}
-                      onChange={(e) => setWhisperOptions(prev => ({ 
-                        ...prev, 
-                        language: e.target.value || undefined
-                      }))}
-                      placeholder="auto-detect"
-                      className="input-field"
-                    />
-                    <p className="text-xs text-gray-600">
-                      Leave empty for auto-detection or specify (e.g., 'en', 'es', 'fr')
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label htmlFor="temperature" className="block text-sm font-medium text-gray-700">
-                      Temperature: {whisperOptions.temperature}
-                    </label>
-                    <input
-                      id="temperature"
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.1"
-                      value={whisperOptions.temperature}
-                      onChange={(e) => setWhisperOptions(prev => ({ 
-                        ...prev, 
-                        temperature: parseFloat(e.target.value)
-                      }))}
-                      className="w-full"
-                    />
-                    <p className="text-xs text-gray-600">
-                      Higher values increase randomness (0.0 = deterministic)
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <label className="flex items-center space-x-3">
-                    <input
-                      type="checkbox"
-                      checked={whisperOptions.includeTimestamps}
-                      onChange={(e) => setWhisperOptions(prev => ({
-                        ...prev,
-                        includeTimestamps: e.target.checked
-                      }))}
-                      className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
-                    />
-                    <span className="text-sm text-gray-700">Include Timestamps</span>
-                  </label>
-
-                  <label className="flex items-center space-x-3">
-                    <input
-                      type="checkbox"
-                      checked={whisperOptions.includeWordTimestamps}
-                      onChange={(e) => setWhisperOptions(prev => ({
-                        ...prev,
-                        includeWordTimestamps: e.target.checked
-                      }))}
-                      className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
-                    />
-                    <span className="text-sm text-gray-700">Include Word-level Timestamps</span>
-                  </label>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Submit Button */}

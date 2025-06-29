@@ -25,16 +25,14 @@
     "moduleResolution": "node",
     "baseUrl": "./",
     "paths": {
-      "@/*": ["src/*"],
-      "@/shared/*": ["../shared/src/*"]
+      "@/*": ["src/*"]
     },
     "allowSyntheticDefaultImports": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true
   },
   "include": [
-    "src/**/*",
-    "../shared/src/**/*"
+    "src/**/*"
   ],
   "exclude": [
     "node_modules",

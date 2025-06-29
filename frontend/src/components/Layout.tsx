@@ -158,7 +158,7 @@ export function Layout({ children }: LayoutProps) {
             </div>
             <div className="flex items-center space-x-6 mt-4 md:mt-0">
               <span className="text-sm text-gray-600">
-                Powered by Whisper & Ollama
+                Powered by Ollama
               </span>
             </div>
           </div>

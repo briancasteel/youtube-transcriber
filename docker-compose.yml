@@ -62,15 +62,11 @@ services:
       - NODE_OPTIONS=--inspect=0.0.0.0:9229
       - DOWNLOAD_DIR=/app/downloads
       - OUTPUT_DIR=/app/output
-      - WHISPER_MODELS_DIR=/app/models
-      # Optional: Add OpenAI API key for Whisper API instead of local
-      # - OPENAI_API_KEY=your_openai_api_key_here
     volumes:
       - ./services/workflow-service/src:/app/src
       - ./services/workflow-service/dist:/app/dist
       - workflow-downloads:/app/downloads
       - workflow-output:/app/output
-      - whisper-models:/app/models
     depends_on:
       - ollama
     networks:
@@ -103,8 +99,6 @@ services:
 
 volumes:
   ollama-data:
-    driver: local
-  whisper-models:
     driver: local
   workflow-downloads:
     driver: local

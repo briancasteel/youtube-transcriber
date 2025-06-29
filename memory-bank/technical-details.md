@@ -530,8 +530,6 @@ DELETE /api/llm/jobs/:jobId
 ├── State management
 └── File cleanup
 
-GET /api/llm/models/whisper
-├── Available Whisper models
 ├── Model capabilities
 ├── Performance characteristics
 └── Resource requirements

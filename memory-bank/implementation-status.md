@@ -1,9 +1,9 @@
 # YouTube Transcriber Implementation Status
 
 ## 🎯 Project Overview
-Building a microservice-based YouTube video transcription application with local AI processing using Whisper and Ollama.
+Building a microservice-based YouTube video transcription application with external transcript service and local AI text enhancement using Ollama.
 
-**Architecture**: React frontend → Node.js microservices → Local AI (Whisper + Ollama) → AWS deployment
+**Architecture**: React frontend → Node.js microservices → External Transcript Service + Ollama → AWS deployment
 
 ## ✅ COMPLETE BACKEND IMPLEMENTATION - ALL PHASES COMPLETED (June 24, 2025)
 
@@ -199,7 +199,6 @@ The full YouTube transcription pipeline is now implemented and operational:
 - **GET /api/llm/jobs/:jobId/result**: Result retrieval (CONFIGURED)
 - **GET /api/llm/jobs**: Paginated job listing (CONFIGURED)
 - **DELETE /api/llm/jobs/:jobId**: Job cancellation (CONFIGURED)
-- **GET /api/llm/models/whisper**: Available models (CONFIGURED)
 - **GET /api/llm/models/ollama**: Available models (CONFIGURED)
 
 ### 🐳 Complete Docker Infrastructure - ✅ OPERATIONAL
@@ -256,13 +255,12 @@ services:
 
 #### Complete YouTube Transcription Pipeline
 1. **URL Validation**: YouTube URL format and accessibility validation
-2. **Video Processing**: Metadata extraction and audio download
-3. **Audio Extraction**: High-quality audio format conversion
-4. **AI Transcription**: Whisper-based speech-to-text conversion
-5. **Text Enhancement**: Ollama-based grammar and clarity improvement
-6. **Summary Generation**: Automatic summarization and keyword extraction
-7. **Multiple Formats**: Output in Text, SRT, VTT, and JSON formats
-8. **Progress Tracking**: Real-time status updates throughout the pipeline
+2. **Transcript Retrieval**: External service-based transcript fetching (tactiq.io)
+3. **Mock Data Fallback**: Generates mock transcription data when external service fails
+4. **Text Enhancement**: Ollama-based grammar and clarity improvement
+5. **Summary Generation**: Automatic summarization and keyword extraction
+6. **Multiple Formats**: Output in Text, SRT, VTT, and JSON formats
+7. **Progress Tracking**: Real-time status updates throughout the pipeline
 
 #### Advanced Features
 - **Asynchronous Processing**: Non-blocking job execution

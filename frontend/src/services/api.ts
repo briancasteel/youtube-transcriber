@@ -91,14 +91,6 @@ export interface WorkflowExecution {
   metadata?: any;
 }
 
-export interface WhisperOptions {
-  language?: string;
-  model?: 'tiny' | 'base' | 'small' | 'medium' | 'large';
-  temperature?: number;
-  includeTimestamps?: boolean;
-  includeWordTimestamps?: boolean;
-  outputFormat?: 'txt' | 'srt' | 'vtt' | 'json';
-}
 
 export interface TextEnhancementOptions {
   addPunctuation?: boolean;
@@ -251,12 +243,11 @@ class ApiService {
   // New job-based workflow API
   async startYouTubeTranscription(
     url: string, 
-    whisperOptions?: WhisperOptions,
     enhancementOptions?: TextEnhancementOptions
   ): Promise<{ executionId: string }> {
     const options = {
-      language: whisperOptions?.language,
-      includeTimestamps: whisperOptions?.includeTimestamps || true,
+      language: 'en',
+      includeTimestamps: true,
       enhanceText: enhancementOptions?.addPunctuation || 
                    enhancementOptions?.fixGrammar || 
                    enhancementOptions?.improveClarity || false,
@@ -379,7 +370,6 @@ class ApiService {
   // File Upload (legacy - not supported in new system)
   async uploadAudioFile(
     _file: File,
-    _whisperOptions?: WhisperOptions,
     _enhancementOptions?: TextEnhancementOptions
   ): Promise<{ jobId: string }> {
     throw new Error('Direct audio file upload not supported in new agent system. Please use YouTube URLs.');

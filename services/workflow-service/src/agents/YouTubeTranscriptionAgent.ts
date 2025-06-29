@@ -234,43 +234,44 @@ export class YouTubeTranscriptionAgent {
       logger.info('Ollama connection test passed, starting agent invocation', { executionId });
       
       const systemPrompt = `
-You're a YouTube transcription agent.
+You are a YouTube transcription agent. Your task is to extract transcripts from YouTube videos.
 
-You should retrieve the video id for a given YouTube url and return the title and description of the video. 
-Also retrieve the transcript for the youtube video using the transcript tool.
-Use all tools at your disposal.
+REQUIRED STEPS:
+1. First, validate the YouTube URL using the url_validator tool
+2. Then, MUST call the youtube_transcript tool to get the actual transcript data
+3. Process the transcript data and return the structured result
 
-You have the following tools:
+TOOLS AVAILABLE:
 1. url_validator: Validate YouTube URL and extract video ID
-2. youtube_transcript: Get transcript and title for YouTube video
+   - Parameters: { "videoUrl": "https://www.youtube.com/watch?v=VIDEO_ID" }
+
+2. youtube_transcript: Get YouTube video transcript and metadata (REQUIRED)
    - Parameters: { "videoUrl": "https://www.youtube.com/watch?v=VIDEO_ID", "langCode": "en" }
+   - This tool returns: { "title": "video title", "captions": [{"text": "...", "start": 0, "duration": 5}] }
 
-Generate the description by summarizing the transcript content.
+IMPORTANT: You MUST call the youtube_transcript tool to get the actual transcript data. Do not skip this step.
 
-Return output in the following JSON structure:
+Return the final result in this exact JSON structure:
 {
-    "videoId": "ID of the video",
-    "title": "video title from transcript service",
-    "description": "AI-generated summary of the transcript content",
-    "captions": [
-        {
-            "text": "transcript text segment",
-            "start": start_time_in_seconds,
-            "duration": duration_in_seconds
-        }
-    ],
-    "summary": "concise summary of video content",
-    "keywords": ["key", "words", "from", "content"],
+    "videoId": "extracted video ID",
+    "title": "title from youtube_transcript tool",
+    "description": "summary of the transcript content",
+    "captions": "captions array from youtube_transcript tool",
+    "summary": "brief summary of the video content",
+    "keywords": ["extracted", "keywords", "from", "transcript"],
     "metadata": {
-        "duration": total_video_duration_seconds,
+        "duration": estimated_duration_in_seconds,
         "language": "${options.language || 'en'}",
         "processingTime": 0,
         "enhanced": false
     }
 }
 
-Do not return the data without populating all fields with actual data.
-Always validate the URL first, then get the transcript.
+WORKFLOW:
+1. Call url_validator with the provided URL
+2. Call youtube_transcript with the same URL to get transcript data
+3. Use the transcript data to generate description, summary, and keywords
+4. Return the complete JSON structure with all fields populated
 `;
 
       logger.info('Invoking agent with messages', {

@@ -1,6 +1,6 @@
 # YouTube Transcriber
 
-A microservice-based YouTube video transcription application with AI processing using local Whisper and Ollama, featuring a modern job-based workflow system.
+A microservice-based YouTube video transcription application with external transcript service and AI text enhancement using Ollama, featuring a modern job-based workflow system.
 
 ## 🎯 Overview
 
@@ -8,7 +8,7 @@ This application transcribes YouTube videos to text using a modern microservice 
 
 - **Frontend**: React web app with single-job workflow and real-time progress tracking
 - **Backend**: Node.js microservices with TypeScript and gRPC communication
-- **AI Processing**: Local Whisper + Ollama for transcription and text enhancement
+- **Transcript Service**: External transcript service (tactiq.io) + Ollama for text enhancement
 - **Job Management**: Asynchronous processing with progress tracking and cancellation
 - **Deployment**: Containerized for AWS deployment
 
@@ -19,7 +19,7 @@ Frontend (React) → API Gateway (gRPC Client) → Workflow Service (gRPC Server
                                                         ↓
                                                 Mock YouTube Agent
                                                         ↓
-                                                Whisper + Ollama (Local AI)
+                                          External Transcript Service + Ollama (Text Enhancement)
 ```
 
 ### Services
@@ -279,9 +279,6 @@ PORT=8004
 OLLAMA_URL=http://ollama:11434
 OLLAMA_DEFAULT_MODEL=llama2:7b
 LOG_LEVEL=debug
-DOWNLOAD_DIR=/app/downloads
-OUTPUT_DIR=/app/output
-WHISPER_MODELS_DIR=/app/models
 
 # Ollama
 OLLAMA_MODELS=llama2:7b
@@ -290,10 +287,11 @@ OLLAMA_MODELS=llama2:7b
 ### Model Configuration
 
 The integrated workflow service uses:
-- **Whisper Model**: Local Whisper implementation for transcription
+- **External Transcript Service**: tactiq.io API for YouTube transcript retrieval
 - **Ollama Model**: `llama2:7b` (lightweight for text enhancement and ReAct reasoning)
+- **Mock Data Fallback**: Generates mock transcription when external service fails
 
-To use different models, update the environment variables in `docker-compose.yml`.
+To use different Ollama models, update the environment variables in `docker-compose.yml`.
 
 ## 🎯 Usage Example
 
