@@ -1,33 +1,53 @@
 # YouTube Transcriber
 
-A microservice-based YouTube video transcription application with AI processing using external services and Ollama.
+A microservice-based YouTube video transcription application with AI processing using local Whisper and Ollama, featuring a modern job-based workflow system.
 
 ## 🎯 Overview
 
-This application transcribes YouTube videos to text using a modern microservice architecture:
+This application transcribes YouTube videos to text using a modern microservice architecture with asynchronous job processing:
 
-- **Frontend**: React web app with YouTube URL input and video display
-- **Backend**: Node.js microservices with TypeScript
+- **Frontend**: React web app with single-job workflow and real-time progress tracking
+- **Backend**: Node.js microservices with TypeScript and gRPC communication
 - **AI Processing**: Local Whisper + Ollama for transcription and text enhancement
-- **Orchestration**: LangGraph for workflow management
+- **Job Management**: Asynchronous processing with progress tracking and cancellation
 - **Deployment**: Containerized for AWS deployment
 
 ## 🏗️ Architecture
 
 ```
-Frontend (React) → Express Gateway → Workflow Service (ReAct Engine)
-                                           ↓
-                                    Integrated Media Processor
-                                           ↓
-                                    Whisper + Ollama (Local AI)
+Frontend (React) → API Gateway (gRPC Client) → Workflow Service (gRPC Server + JobManager)
+                                                        ↓
+                                                Mock YouTube Agent
+                                                        ↓
+                                                Whisper + Ollama (Local AI)
 ```
 
 ### Services
 
-- **Frontend Service** (Port 3000): React web application
-- **Express Gateway** (Port 8000): Industry-standard API gateway with routing, rate limiting, CORS
-- **Workflow Service** (Port 8004): Integrated ReAct workflow engine with media processing
+- **Frontend Service** (Port 3000): React web application with job-based workflow
+- **API Gateway** (Port 8000): Express.js gateway with gRPC client integration
+- **Workflow Service** (Port 8004): gRPC server with JobManager and asynchronous processing
 - **Ollama** (Port 11434): Local LLM server for text enhancement and AI processing
+
+## ✨ Key Features
+
+### 🚀 Job-Based Workflow System
+- **Single-Job Processing**: Simplified UI focused on one transcription at a time
+- **Real-Time Progress**: Live progress updates from 0% to 100% with status messages
+- **Cancellation Support**: Users can cancel jobs mid-processing with proper cleanup
+- **No Timeouts**: Asynchronous processing prevents UI timeouts during long transcriptions
+
+### 🔧 gRPC Communication
+- **High Performance**: Binary protocol with HTTP/2 multiplexing
+- **Type Safety**: Protocol buffer definitions ensure compile-time interface validation
+- **Error Handling**: Automatic error mapping between gRPC and HTTP responses
+- **Connection Management**: Efficient connection pooling and management
+
+### 📊 Progress Tracking
+- **Live Updates**: Real-time job status polling every 2 seconds
+- **Detailed Status**: Progress percentage, start/end times, and current status
+- **Error Recovery**: Comprehensive error handling with user-friendly messages
+- **Result Retrieval**: Complete transcription data with captions, summary, and key points
 
 ## 🚀 Quick Start
 
@@ -91,25 +111,53 @@ This will:
 
 ## 📊 API Endpoints
 
-### Transcription API
+### Job-Based Transcription API
 
 ```bash
-# Start Langgraph-powered transcription (Recommended)
-POST /api/workflow/youtube-transcription-langgraph
+# Start asynchronous transcription job
+POST /api/transcription/jobs
 {
-  "youtubeUrl": "https://www.youtube.com/watch?v=VIDEO_ID",
-  "options": {
-    "language": "en",
-    "enhanceText": true,
-    "generateSummary": true,
-    "extractKeywords": true,
-    "quality": "highestaudio",
-    "format": "mp3"
-  }
+  "videoUrl": "https://www.youtube.com/watch?v=VIDEO_ID"
 }
+# Response: {"success": true, "jobId": "job-1234567890-abc123"}
 
-# Start transcription (Legacy)
-POST /api/transcribe
+# Get job status and progress
+GET /api/transcription/jobs/{jobId}
+# Response: {
+#   "success": true,
+#   "data": {
+#     "jobId": "job-1234567890-abc123",
+#     "status": "processing",
+#     "progress": 75,
+#     "startTime": "2025-06-28T22:10:22.432Z",
+#     "metadata": {"video_url": "https://www.youtube.com/watch?v=VIDEO_ID"}
+#   }
+# }
+
+# Cancel running job
+POST /api/transcription/jobs/{jobId}/cancel
+# Response: {"success": true} or {"success": false, "error": "Job cannot be cancelled"}
+
+# Get completed transcription result
+GET /api/transcription/jobs/{jobId}/result
+# Response: {
+#   "success": true,
+#   "data": {
+#     "videoId": "VIDEO_ID",
+#     "title": "Video Title",
+#     "description": "Video description...",
+#     "captions": [{"text": "Hello", "startTime": 0}, ...],
+#     "summary": "Video summary...",
+#     "keyPoints": ["point1", "point2", ...]
+#   }
+# }
+```
+
+### Legacy API (Still Supported)
+
+```bash
+# Start Langgraph-powered transcription
+POST /api/workflow/youtube-transcription-langgraph
 {
   "youtubeUrl": "https://www.youtube.com/watch?v=VIDEO_ID",
   "options": {
@@ -125,9 +173,6 @@ GET /api/workflow/execution/{executionId}
 
 # Cancel workflow execution
 POST /api/workflow/execution/{executionId}/cancel
-
-# Get video info
-GET /api/video-info?url=https://www.youtube.com/watch?v=VIDEO_ID
 ```
 
 ### Health Checks
