@@ -10,7 +10,7 @@ COPY gateway/package*.json ./
 RUN npm install && npm cache clean --force
 
 # Copy proto files (will be provided by build context)
-COPY shared/proto/ ./proto/
+COPY gateway/proto/ ./proto/
 
 # Copy source code
 COPY gateway/src/ ./src/

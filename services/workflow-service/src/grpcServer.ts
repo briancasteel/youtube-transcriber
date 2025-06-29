@@ -57,11 +57,11 @@ export const grpcServiceImpl = {
           description: result.data.description || '',
           duration: result.data.duration || 0,
           channel: result.data.channel || '',
-          captions: result.data.captions?.map((caption: any) => ({
-            text: caption.text,
-            start_time: caption.startTime,
-            end_time: caption.endTime
-          })) || [],
+          captions: (result.data.captions || []).map((caption: any) => ({
+            text: caption.text || '',
+            start_time: caption.startTime || caption.start || 0,
+            end_time: caption.endTime || caption.end || 0
+          })),
           summary: result.data.summary,
           key_points: result.data.keyPoints || []
         } : undefined
@@ -284,6 +284,242 @@ export const grpcServiceImpl = {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       
       logger.error('gRPC GetDetailedHealth failed', {
+        requestId,
+        error: errorMessage,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+
+      const grpcError = new Error(errorMessage);
+      (grpcError as any).code = grpc.status.INTERNAL;
+      callback(grpcError);
+    }
+  },
+
+  /**
+   * Start asynchronous transcription job
+   */
+  async StartTranscriptionJob(call: grpc.ServerUnaryCall<any, any>, callback: grpc.sendUnaryData<any>) {
+    const requestId = `grpc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    try {
+      const { video_url, options } = call.request;
+      
+      logger.info('gRPC StartTranscriptionJob request received', {
+        requestId,
+        video_url,
+        options,
+        peer: call.getPeer()
+      });
+
+      // Convert gRPC options to internal format
+      const internalOptions = options ? {
+        language: options.language,
+        includeTimestamps: options.include_timestamps,
+        enhanceText: options.enhance_text,
+        audioQuality: options.audio_quality,
+        audioFormat: options.audio_format
+      } : {};
+
+      const result = await workflowService.startTranscriptionJob(video_url, internalOptions);
+      
+      // Convert internal response to gRPC format
+      const grpcResponse = {
+        success: result.success,
+        job_id: result.jobId,
+        error: result.error
+      };
+
+      logger.info('gRPC StartTranscriptionJob completed', {
+        requestId,
+        success: result.success,
+        jobId: result.jobId
+      });
+
+      callback(null, grpcResponse);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      
+      logger.error('gRPC StartTranscriptionJob failed', {
+        requestId,
+        error: errorMessage,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+
+      const grpcError = new Error(errorMessage);
+      (grpcError as any).code = grpc.status.INTERNAL;
+      callback(grpcError);
+    }
+  },
+
+  /**
+   * Get transcription job status
+   */
+  GetTranscriptionJob(call: grpc.ServerUnaryCall<any, any>, callback: grpc.sendUnaryData<any>) {
+    const requestId = `grpc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    try {
+      const { job_id } = call.request;
+      
+      logger.info('gRPC GetTranscriptionJob request received', {
+        requestId,
+        job_id,
+        peer: call.getPeer()
+      });
+
+      const job = workflowService.getTranscriptionJob(job_id);
+      
+      if (!job) {
+        const grpcResponse = {
+          success: false,
+          error: 'Job not found'
+        };
+        callback(null, grpcResponse);
+        return;
+      }
+
+      // Convert internal response to gRPC format
+      const grpcResponse = {
+        success: true,
+        data: {
+          job_id: job.jobId,
+          status: job.status,
+          progress: job.progress,
+          start_time: job.startTime.toISOString(),
+          end_time: job.endTime?.toISOString(),
+          error: job.error,
+          metadata: job.metadata ? {
+            video_url: job.metadata.videoUrl,
+            file_name: job.metadata.fileName,
+            estimated_duration: job.metadata.estimatedDuration
+          } : undefined
+        }
+      };
+
+      logger.info('gRPC GetTranscriptionJob completed', {
+        requestId,
+        jobId: job_id,
+        status: job.status,
+        progress: job.progress
+      });
+
+      callback(null, grpcResponse);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      
+      logger.error('gRPC GetTranscriptionJob failed', {
+        requestId,
+        error: errorMessage,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+
+      const grpcError = new Error(errorMessage);
+      (grpcError as any).code = grpc.status.INTERNAL;
+      callback(grpcError);
+    }
+  },
+
+  /**
+   * Cancel transcription job
+   */
+  CancelTranscriptionJob(call: grpc.ServerUnaryCall<any, any>, callback: grpc.sendUnaryData<any>) {
+    const requestId = `grpc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    try {
+      const { job_id } = call.request;
+      
+      logger.info('gRPC CancelTranscriptionJob request received', {
+        requestId,
+        job_id,
+        peer: call.getPeer()
+      });
+
+      const result = workflowService.cancelTranscriptionJob(job_id);
+      
+      // Convert internal response to gRPC format
+      const grpcResponse = {
+        success: result.success,
+        error: result.error
+      };
+
+      logger.info('gRPC CancelTranscriptionJob completed', {
+        requestId,
+        jobId: job_id,
+        success: result.success
+      });
+
+      callback(null, grpcResponse);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      
+      logger.error('gRPC CancelTranscriptionJob failed', {
+        requestId,
+        error: errorMessage,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+
+      const grpcError = new Error(errorMessage);
+      (grpcError as any).code = grpc.status.INTERNAL;
+      callback(grpcError);
+    }
+  },
+
+  /**
+   * Get transcription job result
+   */
+  GetTranscriptionResult(call: grpc.ServerUnaryCall<any, any>, callback: grpc.sendUnaryData<any>) {
+    const requestId = `grpc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    try {
+      const { job_id } = call.request;
+      
+      logger.info('gRPC GetTranscriptionResult request received', {
+        requestId,
+        job_id,
+        peer: call.getPeer()
+      });
+
+      const result = workflowService.getTranscriptionResult(job_id);
+      
+      if (!result.success) {
+        const grpcResponse = {
+          success: false,
+          error: result.error
+        };
+        callback(null, grpcResponse);
+        return;
+      }
+
+      // Convert internal response to gRPC format
+      const grpcResponse = {
+        success: true,
+        data: result.data ? {
+          video_id: result.data.videoId,
+          title: result.data.title,
+          description: result.data.description || '',
+          duration: result.data.duration || 0,
+          channel: result.data.channel || '',
+          captions: result.data.captions?.map((caption: any) => ({
+            text: caption.text,
+            start_time: caption.startTime || caption.start,
+            end_time: caption.endTime || caption.end
+          })) || [],
+          summary: result.data.summary,
+          key_points: result.data.keyPoints || result.data.keywords || [],
+          metadata: result.data.metadata
+        } : undefined
+      };
+
+      logger.info('gRPC GetTranscriptionResult completed', {
+        requestId,
+        jobId: job_id,
+        success: result.success
+      });
+
+      callback(null, grpcResponse);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      
+      logger.error('gRPC GetTranscriptionResult failed', {
         requestId,
         error: errorMessage,
         stack: error instanceof Error ? error.stack : undefined

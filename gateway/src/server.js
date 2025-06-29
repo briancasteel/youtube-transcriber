@@ -112,6 +112,8 @@ app.get('/', (req, res) => {
 
 
 // API routes with rate limiting and gRPC calls
+
+// Legacy synchronous transcription endpoint
 app.post('/api/transcribe', transcriptionLimiter, async (req, res) => {
   try {
     console.log(`gRPC call: Transcribe for ${req.body.videoUrl}`);
@@ -121,6 +123,96 @@ app.post('/api/transcribe', transcriptionLimiter, async (req, res) => {
     console.error('gRPC Transcribe error:', error.message);
     const statusCode = error.httpStatus || 500;
     res.status(statusCode).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString(),
+      requestId: req.requestId
+    });
+  }
+});
+
+// New job-based transcription endpoints
+app.post('/api/transcription/jobs', transcriptionLimiter, async (req, res) => {
+  try {
+    console.log(`gRPC call: StartTranscriptionJob for ${req.body.videoUrl}`);
+    const result = await grpcClient.startTranscriptionJob(req.body.videoUrl, req.body.options);
+    res.json(result);
+  } catch (error) {
+    console.error('gRPC StartTranscriptionJob error:', error.message);
+    const statusCode = error.httpStatus || 500;
+    res.status(statusCode).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString(),
+      requestId: req.requestId
+    });
+  }
+});
+
+app.get('/api/transcription/jobs/:jobId', async (req, res) => {
+  try {
+    console.log(`gRPC call: GetTranscriptionJob for ${req.params.jobId}`);
+    const result = await grpcClient.getTranscriptionJob(req.params.jobId);
+    res.json(result);
+  } catch (error) {
+    console.error('gRPC GetTranscriptionJob error:', error.message);
+    const statusCode = error.httpStatus || 500;
+    res.status(statusCode).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString(),
+      requestId: req.requestId
+    });
+  }
+});
+
+app.post('/api/transcription/jobs/:jobId/cancel', async (req, res) => {
+  try {
+    console.log(`gRPC call: CancelTranscriptionJob for ${req.params.jobId}`);
+    const result = await grpcClient.cancelTranscriptionJob(req.params.jobId);
+    res.json(result);
+  } catch (error) {
+    console.error('gRPC CancelTranscriptionJob error:', error.message);
+    const statusCode = error.httpStatus || 500;
+    res.status(statusCode).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString(),
+      requestId: req.requestId
+    });
+  }
+});
+
+app.get('/api/transcription/jobs/:jobId/result', async (req, res) => {
+  try {
+    console.log(`gRPC call: GetTranscriptionResult for ${req.params.jobId}`);
+    const result = await grpcClient.getTranscriptionResult(req.params.jobId);
+    res.json(result);
+  } catch (error) {
+    console.error('gRPC GetTranscriptionResult error:', error.message);
+    const statusCode = error.httpStatus || 500;
+    res.status(statusCode).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString(),
+      requestId: req.requestId
+    });
+  }
+});
+
+// File upload endpoint (placeholder)
+app.post('/api/transcription/upload', transcriptionLimiter, async (req, res) => {
+  try {
+    // For now, return an error as file upload is not implemented
+    res.status(501).json({
+      success: false,
+      error: 'Audio file upload is not yet supported. Please use YouTube URLs.',
+      timestamp: new Date().toISOString(),
+      requestId: req.requestId
+    });
+  } catch (error) {
+    console.error('Upload error:', error.message);
+    res.status(500).json({
       success: false,
       error: error.message,
       timestamp: new Date().toISOString(),

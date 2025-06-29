@@ -3,7 +3,6 @@ import { Link, useLocation } from 'react-router-dom';
 import { 
   Home, 
   FileText, 
-  List, 
   Github, 
   Activity,
   Menu,
@@ -22,7 +21,6 @@ export function Layout({ children }: LayoutProps) {
   const navigation = [
     { name: 'Home', href: '/', icon: Home },
     { name: 'Transcribe', href: '/transcribe', icon: FileText },
-    { name: 'Jobs', href: '/jobs', icon: List },
   ];
 
   const isActive = (path: string) => {

@@ -95,6 +95,9 @@ export interface WhisperOptions {
   language?: string;
   model?: 'tiny' | 'base' | 'small' | 'medium' | 'large';
   temperature?: number;
+  includeTimestamps?: boolean;
+  includeWordTimestamps?: boolean;
+  outputFormat?: 'txt' | 'srt' | 'vtt' | 'json';
 }
 
 export interface TextEnhancementOptions {
@@ -122,7 +125,7 @@ class ApiService {
   constructor() {
     this.client = axios.create({
       baseURL: '/api',
-      timeout: 300000, // 5 minutes for transcription requests
+      timeout: 600000, // 10 minutes for transcription requests
       headers: {
         'Content-Type': 'application/json',
       },
@@ -245,26 +248,35 @@ class ApiService {
     };
   }
 
-  // Workflow API (legacy)
+  // New job-based workflow API
   async startYouTubeTranscription(
     url: string, 
     whisperOptions?: WhisperOptions,
     enhancementOptions?: TextEnhancementOptions
   ): Promise<{ executionId: string }> {
-    const options: TranscriptionOptions = {
+    const options = {
       language: whisperOptions?.language,
-      includeTimestamps: true,
+      includeTimestamps: whisperOptions?.includeTimestamps || true,
       enhanceText: enhancementOptions?.addPunctuation || 
                    enhancementOptions?.fixGrammar || 
-                   enhancementOptions?.improveClarity || false
+                   enhancementOptions?.improveClarity || false,
+      audioQuality: 'high',
+      audioFormat: 'mp3'
     };
 
-    try {
-      const result = await this.transcribeYouTubeVideo(url, options);
-      return { executionId: result.videoId };
-    } catch (error) {
-      throw error;
+    const response = await this.client.post<{ success: boolean; jobId?: string; error?: string }>(
+      '/transcription/jobs',
+      {
+        videoUrl: url,
+        options
+      }
+    );
+
+    if (!response.data.success || !response.data.jobId) {
+      throw new Error(response.data.error || 'Failed to start transcription job');
     }
+
+    return { executionId: response.data.jobId };
   }
 
   async getWorkflowExecution(executionId: string): Promise<WorkflowExecution> {
@@ -283,9 +295,9 @@ class ApiService {
     console.warn(`Cannot cancel execution ${executionId} - transcription may already be complete`);
   }
 
-  // Transcription API (legacy)
+  // New job-based transcription API
   async getTranscriptionJobs(limit = 20, offset = 0): Promise<PaginatedResponse<TranscriptionJob>> {
-    // Mock implementation for backward compatibility
+    // For now, return empty list since we're focusing on single-job workflow
     return {
       items: [],
       pagination: {
@@ -299,27 +311,45 @@ class ApiService {
   }
 
   async getTranscriptionJob(jobId: string): Promise<TranscriptionJob> {
-    // Mock implementation for backward compatibility
+    const response = await this.client.get<{ success: boolean; data?: any; error?: string }>(
+      `/transcription/jobs/${jobId}`
+    );
+
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to get job status');
+    }
+
+    const job = response.data.data;
     return {
-      jobId: jobId,
-      status: 'completed',
-      progress: 100,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      jobId: job.jobId,
+      status: job.status,
+      progress: job.progress,
+      error: job.error,
+      createdAt: job.startTime,
+      updatedAt: job.endTime || job.startTime,
     };
   }
 
-  async getTranscriptionResult(_jobId: string): Promise<any> {
-    // Mock implementation for backward compatibility
-    return {
-      transcription: 'Transcription completed using new agent system',
-      summary: 'Please use the new transcribeYouTubeVideo method for full results'
-    };
+  async getTranscriptionResult(jobId: string): Promise<any> {
+    const response = await this.client.get<{ success: boolean; data?: any; error?: string }>(
+      `/transcription/jobs/${jobId}/result`
+    );
+
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to get job result');
+    }
+
+    return response.data.data;
   }
 
   async cancelTranscriptionJob(jobId: string): Promise<void> {
-    // Mock implementation
-    console.warn(`Cannot cancel job ${jobId} - using new agent system`);
+    const response = await this.client.post<{ success: boolean; error?: string }>(
+      `/transcription/jobs/${jobId}/cancel`
+    );
+
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to cancel job');
+    }
   }
 
   // Health Check

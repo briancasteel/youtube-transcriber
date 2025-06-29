@@ -122,7 +122,7 @@ export function HomePage() {
         )}
 
         {/* CTA Buttons */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+        <div className="flex justify-center">
           <Link
             to="/transcribe"
             className="btn-primary inline-flex items-center space-x-2 text-lg px-8 py-3"
@@ -130,13 +130,6 @@ export function HomePage() {
             <Play className="w-5 h-5" />
             <span>Start Transcribing</span>
             <ArrowRight className="w-5 h-5" />
-          </Link>
-          <Link
-            to="/jobs"
-            className="btn-secondary inline-flex items-center space-x-2 text-lg px-8 py-3"
-          >
-            <FileText className="w-5 h-5" />
-            <span>View Jobs</span>
           </Link>
         </div>
       </section>

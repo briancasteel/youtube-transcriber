@@ -111,6 +111,91 @@ const grpcClient = {
     };
   },
 
+  async startTranscriptionJob(videoUrl, options = {}) {
+    const request = {
+      video_url: videoUrl,
+      options: {
+        language: options.language,
+        include_timestamps: options.includeTimestamps,
+        enhance_text: options.enhanceText,
+        audio_quality: options.audioQuality,
+        audio_format: options.audioFormat
+      }
+    };
+    
+    // Debug: Check if the method exists
+    console.log('Checking for StartTranscriptionJob method...');
+    console.log('client.StartTranscriptionJob:', typeof client.StartTranscriptionJob);
+    console.log('Available client methods:', Object.getOwnPropertyNames(client));
+    console.log('Available client prototype methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(client)));
+    
+    if (!client.StartTranscriptionJob) {
+      throw new Error('StartTranscriptionJob method not found on gRPC client');
+    }
+    
+    const response = await promisifyGrpcCall(client.StartTranscriptionJob, request);
+    
+    return {
+      success: response.success,
+      jobId: response.job_id,
+      error: response.error
+    };
+  },
+
+  async getTranscriptionJob(jobId) {
+    const request = { job_id: jobId };
+    const response = await promisifyGrpcCall(client.GetTranscriptionJob, request);
+    
+    return {
+      success: response.success,
+      data: response.data ? {
+        jobId: response.data.job_id,
+        status: response.data.status,
+        progress: response.data.progress,
+        startTime: response.data.start_time,
+        endTime: response.data.end_time,
+        error: response.data.error,
+        metadata: response.data.metadata
+      } : undefined,
+      error: response.error
+    };
+  },
+
+  async cancelTranscriptionJob(jobId) {
+    const request = { job_id: jobId };
+    const response = await promisifyGrpcCall(client.CancelTranscriptionJob, request);
+    
+    return {
+      success: response.success,
+      error: response.error
+    };
+  },
+
+  async getTranscriptionResult(jobId) {
+    const request = { job_id: jobId };
+    const response = await promisifyGrpcCall(client.GetTranscriptionResult, request);
+    
+    return {
+      success: response.success,
+      data: response.data ? {
+        videoId: response.data.video_id,
+        title: response.data.title,
+        description: response.data.description,
+        duration: response.data.duration,
+        channel: response.data.channel,
+        captions: response.data.captions?.map(caption => ({
+          text: caption.text,
+          startTime: caption.start_time,
+          endTime: caption.end_time
+        })) || [],
+        summary: response.data.summary,
+        keyPoints: response.data.key_points || [],
+        metadata: response.data.metadata
+      } : undefined,
+      error: response.error
+    };
+  },
+
   async validateUrl(videoUrl) {
     const request = { video_url: videoUrl };
     const response = await promisifyGrpcCall(client.ValidateUrl, request);
@@ -198,12 +283,17 @@ const grpcClient = {
   }
 };
 
+// Debug: Log available methods on the client
+console.log('Available gRPC client methods:', Object.getOwnPropertyNames(client));
+console.log('Client prototype methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(client)));
+
 // Test connection on startup
 client.waitForReady(Date.now() + 5000, (error) => {
   if (error) {
     console.error('Failed to connect to workflow service gRPC:', error.message);
   } else {
     console.log('Successfully connected to workflow service gRPC');
+    console.log('Available methods after connection:', Object.getOwnPropertyNames(client));
   }
 });
 

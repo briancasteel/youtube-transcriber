@@ -4,8 +4,20 @@ package workflow;
 
 // Main workflow service definition
 service WorkflowService {
-  // Process YouTube video transcription
+  // Process YouTube video transcription (legacy synchronous)
   rpc Transcribe(TranscribeRequest) returns (TranscribeResponse);
+  
+  // Start asynchronous transcription job
+  rpc StartTranscriptionJob(TranscribeRequest) returns (StartJobResponse);
+  
+  // Get transcription job status
+  rpc GetTranscriptionJob(GetJobRequest) returns (GetJobResponse);
+  
+  // Cancel transcription job
+  rpc CancelTranscriptionJob(CancelJobRequest) returns (CancelJobResponse);
+  
+  // Get transcription job result
+  rpc GetTranscriptionResult(GetJobRequest) returns (GetJobResultResponse);
   
   // Validate YouTube URL without processing
   rpc ValidateUrl(ValidateRequest) returns (ValidateResponse);
@@ -44,6 +56,15 @@ message AgentStatusRequest {
 
 message HealthRequest {
   optional string request_id = 1;
+}
+
+// Job-related request messages
+message GetJobRequest {
+  string job_id = 1;
+}
+
+message CancelJobRequest {
+  string job_id = 1;
 }
 
 // Response messages
@@ -150,3 +171,44 @@ message DependencyStatus {
   string llm_service = 3;
   string ollama = 4;
 }
+
+// Job-related response messages
+message StartJobResponse {
+  bool success = 1;
+  optional string job_id = 2;
+  optional string error = 3;
+}
+
+message GetJobResponse {
+  bool success = 1;
+  optional JobStatusData data = 2;
+  optional string error = 3;
+}
+
+message CancelJobResponse {
+  bool success = 1;
+  optional string error = 2;
+}
+
+message GetJobResultResponse {
+  bool success = 1;
+  optional TranscriptionData data = 2;
+  optional string error = 3;
+}
+
+message JobStatusData {
+  string job_id = 1;
+  string status = 2;
+  int32 progress = 3;
+  string start_time = 4;
+  optional string end_time = 5;
+  optional string error = 6;
+  optional JobMetadata metadata = 7;
+}
+
+message JobMetadata {
+  optional string video_url = 1;
+  optional string file_name = 2;
+  optional int32 estimated_duration = 3;
+}
+
